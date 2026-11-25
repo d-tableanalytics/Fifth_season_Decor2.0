@@ -1,0 +1,421 @@
+/* ---------- Hero banner ---------- */
+.hero {
+  position: relative;
+  border-radius: 11.5px;
+  overflow: hidden;
+  background: #3a2918;
+  box-shadow: var(--shadow);
+}
+.hero__img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1156 / 280;
+  min-height: 137px;
+  max-height: 250px;
+  object-fit: cover;
+  object-position: left center;
+}
+.hero__controls {
+  position: absolute;
+  top: 12%;
+  right: 3%;
+}
+
+/* ---------- Date range picker ---------- */
+.daterange {
+  position: relative;
+}
+.daterange__btn {
+  display: flex;
+  align-items: center;
+  gap: 8.5px;
+  height: 37.5px;
+  padding: 0 13px;
+  border-radius: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+.daterange__btn:hover {
+  border-color: var(--primary);
+}
+.daterange__icon {
+  color: var(--primary);
+}
+.daterange__menu {
+  position: absolute;
+  top: calc(100% + 4.5px);
+  right: 0;
+  z-index: 10;
+  min-width: 100%;
+  margin: 0;
+  padding: 4.5px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  animation: fade-down 0.15s ease;
+}
+.daterange__opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 8.5px;
+  border-radius: 6px;
+  color: var(--text-2);
+}
+.daterange__opt:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.daterange__opt.is-selected {
+  color: var(--accent-text);
+  font-weight: 700;
+  background: var(--gold-soft);
+}
+
+/* ---------- Stat cards ---------- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px 17.5px;
+}
+.stat__top {
+  display: flex;
+  align-items: center;
+  gap: 11.5px;
+}
+.stat__icon {
+  display: grid;
+  place-items: center;
+  width: 37.5px;
+  height: 37.5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.stat__icon--gold { background: var(--gold-soft); color: var(--accent-text); }
+.stat__icon--success { background: var(--success-bg); color: var(--success); }
+.stat__icon--danger { background: var(--danger-bg); color: var(--danger); }
+.stat__icon--info { background: var(--info-bg); color: var(--info); }
+.stat__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.stat__value {
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.stat__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.stat__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.stat__delta.is-up { color: var(--success); }
+.stat__delta.is-down { color: var(--danger); }
+
+/* ---------- Grid + cards ---------- */
+.grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.card__head h3 {
+  font-size: 15px;
+  font-weight: 700;
+}
+.card__sub {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-soft);
+}
+.segmented button {
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.segmented button.is-active {
+  background: var(--surface);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Bar chart ---------- */
+.chart {
+  position: relative;
+  width: 100%;
+}
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+.chart__grid {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+}
+.chart__baseline {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+.chart__tick {
+  font-size: 12px;
+  fill: var(--muted);
+}
+.chart__bar {
+  fill: var(--chart-bar);
+  transition: opacity 0.15s;
+}
+.chart__bar.is-dimmed {
+  opacity: 0.4;
+}
+.chart rect:focus {
+  outline: none;
+}
+.chart rect:focus-visible {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+.chart__tooltip {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, calc(-100% - 10px));
+  min-width: 101px;
+  padding: 7px 8.5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.chart__tooltip-title {
+  font-size: 12px;
+  color: var(--muted);
+}
+.chart__tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.chart__tooltip-row strong {
+  margin-left: auto;
+  padding-left: 8.5px;
+  color: var(--text);
+}
+.chart__swatch {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--chart-bar);
+}
+
+/* ---------- Donut ---------- */
+.donut {
+  display: flex;
+  align-items: center;
+  gap: 23px;
+  min-height: 216px;
+}
+.donut__figure {
+  position: relative;
+  flex: 0 0 173px;
+  max-width: 173px;
+}
+.donut__figure svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.donut__slice {
+  stroke: var(--surface);
+  stroke-width: 2;
+  transition: opacity 0.15s, d 0.15s;
+  cursor: pointer;
+}
+.donut__slice.is-dimmed {
+  opacity: 0.35;
+}
+.donut__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.donut__center strong {
+  font-size: 23.5px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.donut__center span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.donut__legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.donut__legend li {
+  display: grid;
+  grid-template-columns: 12px 1fr auto 44px;
+  align-items: center;
+  gap: 8.5px;
+  padding: 7px 7px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: default;
+}
+.donut__legend li:hover,
+.donut__legend li.is-active {
+  background: var(--surface-soft);
+}
+.donut__dot {
+  width: 8.5px;
+  height: 8.5px;
+  border-radius: 50%;
+}
+.donut__label {
+  color: var(--text-2);
+}
+.donut__value {
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+}
+.donut__pct {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* ---------- Table ---------- */
+.table-wrap {
+  overflow-x: auto;
+  margin: 0 -14.5px -14.5px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+.table th {
+  padding: 8.5px 14.5px;
+  background: var(--surface-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+}
+.table td {
+  padding: 10px 14.5px;
+  border-top: 1px solid var(--border);
+}
+.table tbody tr:hover {
+  background: var(--surface-soft);
+}
+.table .num {
+  text-align: right;
+}
+.cell-main {
+  font-weight: 600;
+}
+.cell-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1000px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1050px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .hero__controls {
+    position: static;
+    padding: 8.5px;
+    background: var(--surface);
+  }
+  .daterange__btn {
+    width: 100%;
+    font-size: 11.5px;
+  }
+  .daterange__menu {
+    left: 0;
+  }
+  .stats {
+    gap: 10px;
+  }
+  .stat {
+    padding: 13px;
+  }
+  .stat__label {
+    font-size: 11.5px;
+  }
+  .stat__value {
+    font-size: 20.5px;
+  }
+  .donut {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .donut__figure {
+    align-self: center;
+    flex-basis: auto;
+    width: 158.5px;
+  }
+}
+@media (max-width: 480px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}
