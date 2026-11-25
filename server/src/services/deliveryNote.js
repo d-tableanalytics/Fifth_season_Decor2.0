@@ -1,7 +1,7 @@
 import { query } from '../config/db.js';
 import { STAGES } from '../config/o2d.js';
 import { cutLines } from './cutting.js';
-import { resolveRecipients, sendAndLog } from './whatsapp.js';
+import { resolveRecipients, sendAndLog, eventMessage } from './whatsapp.js';
 import { badRequest, conflict, notFound } from '../utils/httpError.js';
 
 /**
@@ -144,13 +144,19 @@ export async function sendLr(type, id, userId) {
   const [group, owner] = await resolveRecipients(['CLIENT_GROUP', 'CLIENT_OWNER'], o.client_ref);
   const r = group.to ? group : owner;
   if (!r.to) throw badRequest('The client has no WhatsApp group or owner number');
-  const message = [
+  const trackingLink = o.tracking_token ? appLink(`/track/${o.tracking_token}`) : '';
+  const fallback = [
     '*Fifth Seasons Decor — Dispatch Update*',
     `Dear ${rows[0].company_name},`,
     `Your order *${o.system_order_no || o.enquiry_number}* is with ${o.transport_name || 'the transport'}.`,
     `LR No: *${o.lr_number}*`,
-    ...(o.tracking_token ? ['Track your order:', appLink(`/track/${o.tracking_token}`)] : []),
+    ...(o.tracking_token ? ['Track your order:', trackingLink] : []),
   ].join('\n');
+  const message = await eventMessage(
+    'SEND_LR',
+    { company_name: rows[0].company_name, order_no: o.system_order_no || o.enquiry_number, transport_name: o.transport_name || 'the transport', lr_number: o.lr_number, tracking_link: trackingLink },
+    fallback
+  );
   const log = await sendAndLog({ triggerKey: 'SEND_LR', recipient: r, clientId: o.client_ref, message, userId });
   if (log.status !== 'SENT') throw badRequest(`WhatsApp not sent: ${log.error || 'unknown error'}`);
   await query('UPDATE o2d_orders SET lr_sent_at = NOW() WHERE id = $1', [o.id]);

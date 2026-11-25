@@ -153,3 +153,31 @@ export async function sendAndLog({ triggerKey, recipient, clientId, message, use
   );
   return rows[0];
 }
+
+/** Replace {{key}} with vars[key]; a missing value renders as ''. */
+export const renderTemplate = (body, vars = {}) =>
+  String(body || '').replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => (vars[key] == null ? '' : String(vars[key])));
+
+/** "$(Candidate Name)" -> "{{candidate_name}}" so only one placeholder format is stored. */
+export const normalizePlaceholders = (body) =>
+  String(body || '').replace(/\$\(\s*([^)]+?)\s*\)/g, (_, label) => {
+    const key = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return key ? `{{${key}}}` : '';
+  });
+
+/**
+ * Message for an event: the enabled template rendered with `vars`, else `fallback` (the built-in text).
+ * Never throws — a template lookup failure falls back to the built-in message.
+ */
+export async function eventMessage(event, vars, fallback) {
+  try {
+    const { rows } = await query('SELECT body FROM whatsapp_templates WHERE event = $1 AND enabled AND deleted_at IS NULL', [event]);
+    if (rows[0]) {
+      const text = renderTemplate(rows[0].body, vars).trim();
+      if (text) return text;
+    }
+  } catch (err) {
+    console.error('WhatsApp template lookup failed:', err.message);
+  }
+  return fallback;
+}

@@ -730,3 +730,21 @@ CREATE TABLE IF NOT EXISTS whatsapp_messages (
   created_by     INT REFERENCES users(id) ON DELETE SET NULL,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Message templates per event (event catalogue lives in config/whatsapp.js). Soft-deleted via deleted_at.
+CREATE TABLE IF NOT EXISTS whatsapp_templates (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(150) NOT NULL,
+  event       VARCHAR(60)  NOT NULL,
+  body        TEXT NOT NULL,
+  description TEXT,
+  enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by  INT REFERENCES users(id) ON DELETE SET NULL,
+  updated_by  INT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at  TIMESTAMPTZ
+);
+-- One live template per event; when enabled it replaces the built-in message for that event
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_templates_event_uq ON whatsapp_templates (event) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS whatsapp_messages_created_idx ON whatsapp_messages (created_at DESC);
