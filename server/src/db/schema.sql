@@ -385,7 +385,7 @@ CREATE TABLE IF NOT EXISTS o2d_item_stock_checks (
   item_id       UUID PRIMARY KEY REFERENCES o2d_order_items(id) ON DELETE CASCADE,
   order_id      UUID NOT NULL REFERENCES o2d_orders(id) ON DELETE CASCADE,
   decision      VARCHAR(20) NOT NULL
-                CHECK (decision IN ('AVAILABLE', 'PARTIAL', 'ALT_COLOR', 'ALT_FABRIC', 'ALT_WIDTH', 'DROP')),
+                CHECK (decision IN ('AVAILABLE', 'PARTIAL', 'SMALL_QTY', 'ALT_COLOR', 'ALT_FABRIC', 'ALT_WIDTH', 'DROP')),
   source_type   VARCHAR(20) CHECK (source_type IN ('CUT', 'ROLL', 'IN_CHECKING')),
   available_qty NUMERIC(12,2),              -- stock in source_type when checked
   rate          NUMERIC(12,2),
@@ -398,6 +398,11 @@ CREATE TABLE IF NOT EXISTS o2d_item_stock_checks (
 );
 CREATE INDEX IF NOT EXISTS o2d_item_stock_checks_order_idx ON o2d_item_stock_checks (order_id);
 ALTER TABLE o2d_item_stock_checks ADD COLUMN IF NOT EXISTS alt_item VARCHAR(200);   -- alternative item the customer chose
+-- Small Qty (panels × length from small pieces) split from Partially (part now, rest later)
+ALTER TABLE o2d_item_stock_checks DROP CONSTRAINT IF EXISTS o2d_item_stock_checks_decision_check;
+ALTER TABLE o2d_item_stock_checks ADD CONSTRAINT o2d_item_stock_checks_decision_check
+  CHECK (decision IN ('AVAILABLE', 'PARTIAL', 'SMALL_QTY', 'ALT_COLOR', 'ALT_FABRIC', 'ALT_WIDTH', 'DROP'));
+UPDATE o2d_item_stock_checks SET decision = 'SMALL_QTY' WHERE decision = 'PARTIAL' AND panels IS NOT NULL;
 
 -- Proforma Invoice (one per order, regenerated after stock-check changes). Made for every order,
 -- shared only with cash customers. share_token = public read-only link.

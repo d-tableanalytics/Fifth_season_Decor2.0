@@ -3,11 +3,13 @@ import { z } from 'zod';
 import { query, withTransaction } from '../config/db.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { LABEL_STAGES, STAGE_KEYS, stageRecords, stageData } from '../services/labels.js';
-import { badRequest, notFound } from '../utils/httpError.js';
+import { badRequest, notFound, forbidden } from '../utils/httpError.js';
+import { can } from '../services/access.js';
 
 const router = Router();
 router.use(requireAuth);
-const view = requirePermission('label_design', 'view');
+// Reading templates / label data: label designers, and the O2D staff who print labels (Cutting, Packing)
+const view = (req, res, next) => (['label_design', 'o2d_cut', 'o2d_roll'].some((m) => can(req.user, m, 'view')) ? next() : next(forbidden()));
 
 const ELEMENT_TYPES = ['text', 'barcode', 'qr', 'image', 'rect', 'ellipse', 'line'];
 const num = (min, max) => z.coerce.number().min(min).max(max);

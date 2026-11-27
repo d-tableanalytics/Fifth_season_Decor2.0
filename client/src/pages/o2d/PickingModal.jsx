@@ -11,6 +11,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Textarea, Switch } from '../../components/ui/FormControls';
 import { useO2D } from '../../context/O2DContext';
 import { RemarksSection } from '../../components/o2d/RemarksSection';
+import { DECISION, DEPT_LABEL } from '../crm/StockCheckModal';
 
 const qty = (n) => Number(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const stamp = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
@@ -200,7 +201,15 @@ export function PickingModal({ id, onClose, onChanged }) {
                         <td className="cell-wrap">
                           <strong>{l.item_name}</strong>
                           {l.item_name !== l.sku_code && <div className="cell-sub">Ordered: {l.sku_code}</div>}
-                          {l.source_type && <div className="cell-sub">Stock Check: {l.source_type.replace('_', ' ')}</div>}
+                          {l.decision && (
+                            <div className="cell-sub picking__decision">
+                              Stock Check: <Badge size="sm" variant={DECISION[l.decision]?.variant}>{DECISION[l.decision]?.label || l.decision}</Badge>
+                              {l.source_type && <> · {DEPT_LABEL[l.source_type]}</>}
+                              {l.decision === 'SMALL_QTY' && l.panels && <> · {l.panels} × {qty(l.panel_length)} {l.unit}</>}
+                              {l.decision === 'PARTIAL' && <> · ordered {qty(l.ordered_qty)}, rest {qty(l.ordered_qty - l.required)} later</>}
+                              {l.check_note && <div>{l.check_note}</div>}
+                            </div>
+                          )}
                         </td>
                         <td className="num">{qty(l.required)} {l.unit}</td>
                         <td className="num">{qty(l.picked)}{l.short > 0 && l.picked > 0 && <div className="cell-sub">short {qty(l.short)}</div>}</td>

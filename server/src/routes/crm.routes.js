@@ -61,7 +61,7 @@ router.get('/payment-check', payView, async (req, res) => {
                 WHERE o.status = 'ACTIVE' AND o.workflow_status = 'PAYMENT_CHECK' AND o.order_type = $1`;
   const [{ rows }, { rows: counts }] = await Promise.all([
     query(
-      `SELECT o.id, o.order_type, o.enquiry_number, c.client_id, c.company_name, c.city,
+      `SELECT o.id, o.order_type, o.enquiry_number, o.client_ref, c.client_id, c.company_name, c.city,
               pc.pending_amount::float AS pending_amount, pc.pending_bills, pc.link_sent_at, pc.link_expires_at,
               pc.promise_date, pc.promise_amount::float AS promise_amount, pc.submitted_at, pc.created_at AS checked_at,
               COUNT(*) OVER()::int AS total_count
@@ -269,7 +269,7 @@ router.get('/stock-check', stockView, async (req, res) => {
     search = ` AND ${SEARCH_SQL(2)}`;
   }
   const { rows } = await query(
-    `SELECT o.id, o.order_type, o.enquiry_number, o.order_mode, o.transport_name, c.client_id, c.company_name, c.skip_payment_check,
+    `SELECT o.id, o.order_type, o.enquiry_number, o.order_mode, o.transport_name, o.client_ref, c.client_id, c.company_name, c.skip_payment_check,
             e.reason AS arrived_reason, e.created_at AS arrived_at,
             (SELECT COUNT(*)::int FROM o2d_order_items i WHERE i.order_id = o.id) AS lines,
             (SELECT COUNT(*)::int FROM o2d_item_stock_checks s WHERE s.order_id = o.id) AS checked,
@@ -305,6 +305,7 @@ const decisionBody = z.object({
   source_type: z.enum(DEPTS).optional().nullable(),
   panels: z.coerce.number().int('No. of Panels must be a whole number').min(1).max(100000).optional().nullable(),
   panel_length: z.coerce.number().positive('Length must be more than 0').max(100000).optional().nullable(),
+  partial_qty: z.coerce.number().positive('Qty must be more than 0').max(1000000).optional().nullable(),
   note: z.string().trim().max(1000).optional().nullable().transform((v) => v || null),
   alt_item: z.string().trim().max(200).optional().nullable().transform((v) => v || null),
 });

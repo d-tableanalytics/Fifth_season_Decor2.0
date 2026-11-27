@@ -11,6 +11,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Skeleton } from '../../components/ui/Loader';
 import { Pagination } from '../../components/ui/FormControls';
 import { StockCheckModal } from './StockCheckModal';
+import { CustomerName } from '../../components/clients/CustomerProfile';
 
 const ALT_SYNC_COLUMNS = {
   alt_color: [
@@ -86,7 +87,7 @@ export default function StockCheck({ type = 'CUT' }) {
                       <td className="mono">{o.enquiry_number}</td>
                       <td><Badge size="sm" variant="neutral">{o.order_type === 'CUT' ? 'Cut' : 'Roll'}</Badge></td>
                       <td className="mono mono--plain">{o.client_id}</td>
-                      <td className="cell-wrap cell-main">{o.company_name}</td>
+                      <td className="cell-wrap cell-main"><CustomerName client={{ id: o.client_ref, client_id: o.client_id, company_name: o.company_name }} /></td>
                       <td className="num">{o.lines}</td>
                       <td>
                         <Badge size="sm" variant={o.checked === 0 ? 'neutral' : o.checked >= o.lines ? 'success' : 'warning'}>

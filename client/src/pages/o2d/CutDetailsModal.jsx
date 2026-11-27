@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Save, Undo2 } from 'lucide-react';
+import { Save, Undo2, Printer } from 'lucide-react';
 
 import { getErrorMessage } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -78,6 +78,11 @@ export function CutDetailsModal({ id, onClose, onChanged }) {
     load();
   }, [load]);
 
+  // Labels print the saved cut details (Label Design default template of the stage)
+  const printLabels = (stage) => {
+    if (JSON.stringify(form) !== JSON.stringify(toForm(d))) return toast.info('Save Cut Details first', 'Labels print the saved Cut / Leftover qty');
+    window.open(`/labels/print?stage=${stage}&ids=${d.lines.map((l) => l.id).join(',')}`, '_blank', 'noopener');
+  };
   const setLine = (lid, fn) => setForm((f) => ({ ...f, lines: f.lines.map((l) => (l.id === lid ? fn(l) : l)) }));
   const setLot = (lid, pid, patch) => setLine(lid, (l) => ({ ...l, lots: l.lots.map((x) => (x.id === pid ? { ...x, ...patch } : x)) }));
 
@@ -176,6 +181,8 @@ export function CutDetailsModal({ id, onClose, onChanged }) {
           <div className="picking-foot">
             <div className="picking-foot__left">
               <Button variant="ghost" icon={Undo2} disabled={!!busy} onClick={() => setBack('')}>Send Back</Button>
+              <Button variant="secondary" icon={Printer} disabled={!!busy} onClick={() => printLabels('CUT_ITEM')}>Cut Labels</Button>
+              <Button variant="secondary" icon={Printer} disabled={!!busy} onClick={() => printLabels('LEFTOVER')}>Leftover Labels</Button>
             </div>
             <div className="picking-foot__right">
               <Button icon={Save} loading={busy === 'save'} disabled={!!busy} onClick={save}>Save Cut Details</Button>

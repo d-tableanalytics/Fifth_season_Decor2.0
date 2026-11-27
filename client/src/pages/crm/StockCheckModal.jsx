@@ -11,6 +11,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Textarea } from '../../components/ui/FormControls';
 import { Input } from '../../components/ui/Input';
 import { RemarksSection } from '../../components/o2d/RemarksSection';
+import { CustomerProfile, SuggestionPanel, ViewTabs } from '../../components/clients/CustomerProfile';
 
 export const DEPT_LABEL = { CUT: 'Cut Dept', ROLL: 'Roll Dept', IN_CHECKING: 'In Checking' };
 const DEPTS = Object.keys(DEPT_LABEL);
@@ -19,7 +20,8 @@ export const DECISION = {
   ALT_COLOR: { label: 'Alternative color', variant: 'info', hint: 'Same fabric and width' },
   ALT_FABRIC: { label: 'Alternative fabric', variant: 'info', hint: 'Same color and width' },
   ALT_WIDTH: { label: 'Alternative width', variant: 'info', hint: 'Same fabric and color' },
-  PARTIAL: { label: 'Partially', variant: 'warning', hint: 'Only what is available — No. of Panels × Length' },
+  PARTIAL: { label: 'Partially', variant: 'warning', hint: 'Part of the qty now, the rest delivered later' },
+  SMALL_QTY: { label: 'Small Qty', variant: 'warning', hint: 'No single lot — small pieces as No. of Panels × Length' },
   DROP: { label: 'Drop item', variant: 'danger', hint: 'Remove this item from the order' },
 };
 const qtyFmt = (n) => (n == null ? '—' : Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 }));
@@ -36,6 +38,7 @@ export function StockCheckModal({ id, onClose, onChanged }) {
   const [checkIndex, setCheckIndex] = useState(null); // item index being checked
   const [holdOpen, setHoldOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState('check');
 
   const load = useCallback(
     () =>
@@ -86,18 +89,21 @@ export function StockCheckModal({ id, onClose, onChanged }) {
 
   const c = d?.client;
   const allChecked = d && d.checked === d.items.length;
-  // Same rules as the server: every item checked, a fresh proforma, and the advance for cash customers
+  // Same rules as the server: every item checked; cash customers also need a fresh proforma and the advance
+  // (for others the server makes / refreshes the proforma on Complete)
   const blockReason = !d
     ? ''
     : !allChecked
       ? 'Check every item first'
-      : !d.proforma
-        ? 'Generate the Proforma Invoice first'
-        : d.proforma.stale
-          ? 'Regenerate the Proforma Invoice'
-          : d.cash.is_cash && !d.advance
-            ? 'Cash customer — record the advance first'
-            : '';
+      : !d.cash.is_cash
+        ? ''
+        : !d.proforma
+          ? 'Generate the Proforma Invoice first'
+          : d.proforma.stale
+            ? 'Regenerate the Proforma Invoice'
+            : !d.advance
+              ? 'Cash customer — record the advance first'
+              : '';
 
   return (
     <>
@@ -126,6 +132,13 @@ export function StockCheckModal({ id, onClose, onChanged }) {
         {!d ? (
           <Loader label="Loading…" />
         ) : (
+        <>
+          <ViewTabs value={view} onChange={setView} first="Stock Check" />
+          {view === 'history' ? (
+            <CustomerProfile clientId={c.id} />
+          ) : view === 'suggestion' ? (
+            <SuggestionPanel />
+          ) : (
           <div className="crm-pay">
             <div className="crm-facts">
               <div>
@@ -214,6 +227,8 @@ export function StockCheckModal({ id, onClose, onChanged }) {
             <ProformaPanel d={d} canEdit={canEdit} onUpdated={(next) => { setD(next); onChanged(); }} />
             <RemarksSection orderId={id} />
           </div>
+          )}
+        </>
         )}
       </Modal>
 
@@ -271,37 +286,53 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
       source_type: item.source_type || item.dept,
       panels: item.panels ?? '',
       panel_length: item.panel_length ?? '',
+      partial_qty: item.decision === 'PARTIAL' ? item.qty_out : '',
       note: item.note || '',
       alt_item: item.alt_item || '',
     });
     crmApi.availability(order.id, item.id).then((a) => {
       setAv(a);
-      // Suggest the department that can cover the full qty when nothing is decided yet
       if (!item.decision) {
-        const full = [a.dept, ...DEPTS].find((k) => a.depts[k].qty >= item.qty);
-        if (full) setForm((f) => ({ ...f, source_type: full, decision: f.decision || 'AVAILABLE' }));
+        if (a.dept === 'CUT') {
+          // Cut item: Available only when ONE Cut lot covers the qty, else Partially (combine the Cut lots)
+          const biggest = Math.max(0, ...a.depts.CUT.rows.map((r) => r.qty));
+          if (biggest >= item.qty) setForm((f) => ({ ...f, source_type: 'CUT', decision: 'AVAILABLE' }));
+          else if (a.depts.CUT.qty > 0) setForm((f) => ({ ...f, source_type: 'CUT', decision: 'SMALL_QTY' }));
+        } else {
+          // Suggest the department that can cover the full qty when nothing is decided yet
+          const full = [a.dept, ...DEPTS].find((k) => a.depts[k].qty >= item.qty);
+          if (full) setForm((f) => ({ ...f, source_type: full, decision: f.decision || 'AVAILABLE' }));
+        }
       }
     }).catch((err) => toast.error('Could not load stock', getErrorMessage(err)));
   }, [order.id, item, toast]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const needsSource = form.decision === 'AVAILABLE' || form.decision === 'PARTIAL';
+  const needsSource = form.decision === 'AVAILABLE' || form.decision === 'PARTIAL' || form.decision === 'SMALL_QTY';
+  // A Cut item ("CUT …") is always taken from the Cut dept — no department choice, only its lots
+  const cutMode = item.dept === 'CUT' && needsSource;
+  const cutLots = av?.depts.CUT.rows || [];
+  const biggestLot = Math.max(0, ...cutLots.map((r) => r.qty));
   const isAlt = form.decision?.startsWith('ALT_');
-  const partialQty = form.decision === 'PARTIAL' && form.panels && form.panel_length ? Math.round(form.panels * form.panel_length * 100) / 100 : null;
+  const partialQty = form.decision === 'SMALL_QTY' && form.panels && form.panel_length ? Math.round(form.panels * form.panel_length * 100) / 100 : null;
   const altList = (isAlt && av?.alternatives?.[form.decision.slice(4)]) || [];
   const altPicked = altList.find((a) => a.alt_name === form.alt_item);
   const stockOf = altPicked ? altPicked.depts : av?.depts;
-  const srcQty = stockOf && form.source_type ? stockOf[form.source_type].qty : null;
-  const srcRate = stockOf && form.source_type ? stockOf[form.source_type].rate : null;
+  // No manual department choice: Cut items use the Cut dept; others the item's own dept if it covers the qty, else the dept that does, else the one with the most stock
+  const autoSource = (d) => !d ? item.dept : [item.dept, ...DEPTS].find((k) => d[k]?.qty >= item.qty) || [item.dept, ...DEPTS].reduce((m, k) => (d[k]?.qty > (d[m]?.qty ?? 0) ? k : m));
+  const sourceType = cutMode ? 'CUT' : needsSource || isAlt ? autoSource(stockOf) : form.source_type;
+  const srcQty = stockOf && sourceType ? stockOf[sourceType].qty : null;
+  const srcRate = stockOf && sourceType ? stockOf[sourceType].rate : null;
 
   const save = async (go) => {
     setBusy(true);
     try {
       const next = await crmApi.saveItem(order.id, item.id, {
         decision: form.decision,
-        source_type: form.decision === 'DROP' ? null : form.source_type || null,
-        panels: form.decision === 'PARTIAL' ? Number(form.panels) || null : null,
-        panel_length: form.decision === 'PARTIAL' ? Number(form.panel_length) || null : null,
+        source_type: form.decision === 'DROP' ? null : sourceType || null,
+        panels: form.decision === 'SMALL_QTY' ? Number(form.panels) || null : null,
+        panel_length: form.decision === 'SMALL_QTY' ? Number(form.panel_length) || null : null,
+        partial_qty: form.decision === 'PARTIAL' ? Number(form.partial_qty) || null : null,
         note: form.note.trim() || null,
         alt_item: isAlt ? form.alt_item || null : null,
       });
@@ -351,12 +382,12 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
         {!av ? (
           <Loader label="Checking stock…" />
         ) : (
-          <div className="stock-depts">
-            {DEPTS.map((k) => {
+          <div className={`stock-depts ${cutMode ? 'stock-depts--single' : ''}`}>
+            {(cutMode ? ['CUT'] : DEPTS).map((k) => {
               const dep = av.depts[k];
               const enough = dep.qty >= item.qty;
               return (
-                <div key={k} className={`stock-dept ${form.source_type === k && needsSource ? 'is-selected' : ''}`}>
+                <div key={k} className={`stock-dept ${sourceType === k && needsSource ? 'is-selected' : ''}`}>
                   <div className="stock-dept__head">
                     <span>{DEPT_LABEL[k]}</span>
                     <Badge size="sm" variant={dep.qty <= 0 ? 'neutral' : enough ? 'success' : 'warning'}>
@@ -369,7 +400,7 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
                       <thead><tr><th>Rack</th><th>Lot</th><th className="num">Qty</th></tr></thead>
                       <tbody>
                         {dep.rows.map((r, i) => (
-                          <tr key={i} title={r.item_name}>
+                          <tr key={i} title={r.item_name} className={cutMode && r.qty >= item.qty ? 'is-covering' : ''}>
                             <td>{r.rack_no || '—'}</td>
                             <td className="mono mono--plain">{r.lot_no || '—'}</td>
                             <td className="num">{qtyFmt(r.qty)}</td>
@@ -428,20 +459,20 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
           </div>
         )}
 
-        {(needsSource || isAlt) && (
+        {cutMode && av && (
+          <p className="cell-sub crm-pay__hint">
+            Cut Dept · {cutLots.length} lot(s) · biggest lot {qtyFmt(biggestLot)} {item.unit} · total {qtyFmt(av.depts.CUT.qty)} {item.unit}
+            {form.decision === 'AVAILABLE' && biggestLot < item.qty && <strong className="text-danger"> — no single lot has {qtyFmt(item.qty)}; choose Small Qty</strong>}
+            {form.decision === 'PARTIAL' && Number(form.partial_qty) > biggestLot && <strong className="text-danger"> — no single lot has {qtyFmt(form.partial_qty)}; choose Small Qty</strong>}
+            {form.decision === 'SMALL_QTY' && ' — the lots are combined as small qty'}
+          </p>
+        )}
+
+        {((needsSource && !cutMode) || isAlt) && (
           <div className="stock-source">
-            <span className="field__label">Take stock from{needsSource && <span className="field__req"> *</span>}</span>
-            <div className="stock-decisions">
-              {DEPTS.map((k) => (
-                <label key={k} className={`radio-pill ${form.source_type === k ? 'is-on' : ''}`}>
-                  <input type="radio" name="source" value={k} checked={form.source_type === k} onChange={() => set('source_type', k)} />
-                  {DEPT_LABEL[k]} {stockOf && <span className="cell-sub">({qtyFmt(stockOf[k].qty)})</span>}
-                </label>
-              ))}
-            </div>
             {srcQty != null && (
               <p className="cell-sub crm-pay__hint">
-                {altPicked ? `${altPicked.alt_name} — ` : ''}{DEPT_LABEL[form.source_type]}: {qtyFmt(srcQty)} {item.unit} available · rate {srcRate != null ? inr(srcRate) : 'not set'}
+                {altPicked ? `${altPicked.alt_name} — ` : ''}{DEPT_LABEL[sourceType]}: {qtyFmt(srcQty)} {item.unit} available · rate {srcRate != null ? inr(srcRate) : 'not set'}
                 {(form.decision === 'AVAILABLE' || altPicked) && srcQty < item.qty && <strong className="text-danger"> — not enough for {qtyFmt(item.qty)}</strong>}
               </p>
             )}
@@ -449,6 +480,16 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
         )}
 
         {form.decision === 'PARTIAL' && (
+          <div className="form-grid">
+            <Input label={`Qty to deliver now (${item.unit})`} type="number" min="0.01" step="0.01" required value={form.partial_qty} onChange={(e) => set('partial_qty', e.target.value)} />
+            <p className="form-grid__full cell-sub">
+              Now <strong>{qtyFmt(Number(form.partial_qty) || 0)} {item.unit}</strong> · later <strong>{qtyFmt(Math.max(0, item.qty - (Number(form.partial_qty) || 0)))} {item.unit}</strong>
+              {srcQty != null && Number(form.partial_qty) > srcQty && <strong className="text-danger"> — more than available ({qtyFmt(srcQty)})</strong>}
+            </p>
+          </div>
+        )}
+
+        {form.decision === 'SMALL_QTY' && (
           <div className="form-grid">
             <Input label="No. of Panels" type="number" min="1" step="1" required value={form.panels} onChange={(e) => set('panels', e.target.value)} />
             <Input label={`Length per panel (${item.unit})`} type="number" min="0.01" step="0.01" required value={form.panel_length} onChange={(e) => set('panel_length', e.target.value)} />

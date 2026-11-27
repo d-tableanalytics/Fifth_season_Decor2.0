@@ -272,6 +272,8 @@ export async function stageData(stage, ids, user) {
   } else {
     const { rows } = await query('SELECT DISTINCT order_id FROM o2d_order_items WHERE id = ANY($1::uuid[])', [valid]);
     records = await lineRecords(rows.map((r) => r.order_id), valid);
+    // Leftover labels only for lines that actually have fabric left after cutting
+    if (stage === 'LEFTOVER') records = records.filter((r) => r.leftover > 0);
   }
   const byId = new Map(records.map((r) => [r.id, r]));
   return valid.filter((id) => byId.has(id)).map((id) => ({ id, fields: { ...byId.get(id).fields, ...common } }));

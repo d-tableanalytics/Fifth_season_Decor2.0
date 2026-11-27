@@ -86,7 +86,7 @@ export const o2dLookups = {
   clients: (search) => api.get('/o2d/lookups/clients', { params: { search } }).then((r) => r.data.data),
   clientTransports: (id, type = 'CUT') => api.get(`/o2d/lookups/clients/${id}/transports`, { params: { type } }).then((r) => r.data.data),
   transports: (search) => api.get('/o2d/lookups/transports', { params: { search } }).then((r) => r.data.data),
-  skus: (search) => api.get('/o2d/lookups/skus', { params: { search } }).then((r) => r.data.data),
+  skus: (search, type) => api.get('/o2d/lookups/skus', { params: { search, type } }).then((r) => r.data.data),
 };
 
 export const ORDER_MODES = [

@@ -11,6 +11,7 @@ import { Skeleton, Loader } from '../../components/ui/Loader';
 import { Modal } from '../../components/ui/Modal';
 import { Pagination } from '../../components/ui/FormControls';
 import { RemarksSection } from '../../components/o2d/RemarksSection';
+import { CustomerName, CustomerProfile, SuggestionPanel, ViewTabs } from '../../components/clients/CustomerProfile';
 
 const TABS = [
   { key: 'awaiting', label: 'Awaiting Customer' },
@@ -93,7 +94,7 @@ export default function PaymentCheck({ type = 'CUT' }) {
                       <td className="cell-sub">{stampFmt(pendingTab ? o.submitted_at : o.checked_at)}</td>
                       <td className="mono">{o.enquiry_number}</td>
                       <td className="mono mono--plain">{o.client_id}</td>
-                      <td className="cell-wrap cell-main">{o.company_name}</td>
+                      <td className="cell-wrap cell-main"><CustomerName client={{ id: o.client_ref, client_id: o.client_id, company_name: o.company_name }} /></td>
                       <td className="num">{o.pending_bills}</td>
                       <td className="num">{inr(o.pending_amount)}</td>
                       {pendingTab ? (
@@ -138,6 +139,7 @@ function PaymentCheckModal({ id, onClose, onChanged }) {
   const [busy, setBusy] = useState('');
   const [link, setLink] = useState('');
   const [results, setResults] = useState(null);
+  const [view, setView] = useState('check');
 
   const load = useCallback(() => crmApi.payment(id).then(setD).catch((err) => {
     toast.error('Could not open order', getErrorMessage(err));
@@ -218,6 +220,13 @@ function PaymentCheckModal({ id, onClose, onChanged }) {
       {!d ? (
         <Loader label="Loading…" />
       ) : (
+      <>
+        <ViewTabs value={view} onChange={setView} first="Payment Check" />
+        {view === 'history' ? (
+          <CustomerProfile clientId={d.client_ref} />
+        ) : view === 'suggestion' ? (
+          <SuggestionPanel />
+        ) : (
         <div className="crm-pay">
           <div className="crm-facts">
             <div><span>Status</span><Badge size="sm" variant={awaiting ? 'warning' : 'info'}>{awaiting ? 'Awaiting customer' : 'Pending manager approval'}</Badge></div>
@@ -320,6 +329,8 @@ function PaymentCheckModal({ id, onClose, onChanged }) {
             </div>
           )}
         </div>
+        )}
+      </>
       )}
     </Modal>
   );

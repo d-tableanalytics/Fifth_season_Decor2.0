@@ -1044,3 +1044,22 @@
   .dp-layout { grid-template-columns: 1fr; }
   .dp-map { height: 340px; }
 }
+.stock-depts--single { grid-template-columns: minmax(0, 1fr); }
+.stock-depts--single .stock-dept { max-height: 320px; }
+.stock-dept__rows tr.is-covering td { background: var(--success-bg); font-weight: 600; }
+
+/* ---------- Customer Profile ---------- */
+.link-btn { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--accent-text); }
+.cprofile { display: grid; gap: 14px; }
+.cprofile > .segmented, .cprofile__views { justify-self: start; flex-wrap: wrap; }
+.cprofile__views { margin-bottom: 14px; }
+.cprofile__rating { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.cprofile__rating > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cprofile__stars { display: inline-flex; gap: 2px; color: var(--border); }
+.cprofile__stars .is-full { color: var(--warning); fill: var(--warning); }
+.cprofile__stars .is-half { color: var(--warning); fill: var(--warning-bg); }
+.cprofile__top { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cprofile__top li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cprofile__pending { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-2); }
+.cprofile__pending p { margin: 2px 0 0; }

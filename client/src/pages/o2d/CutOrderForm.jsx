@@ -342,7 +342,7 @@ export function CutOrderModal({ id = null, mode = 'view', onClose, onSaved }) {
                   <AsyncPicker
                     className="apicker--cell"
                     text={row.sku_code}
-                    load={o2dLookups.skus}
+                    load={(s) => o2dLookups.skus(s, o2d.type)}
                     disabled={ro}
                     placeholder="Search SKU"
                     exactMatch={(o, typed) => o.sku_code.toUpperCase() === typed.toUpperCase()}

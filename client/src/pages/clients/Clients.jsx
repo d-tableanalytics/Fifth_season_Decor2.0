@@ -14,6 +14,7 @@ import { Skeleton } from '../../components/ui/Loader';
 import { ConfirmDialog } from '../../components/ui/Modal';
 import { Pagination } from '../../components/ui/FormControls';
 import { MasterSyncModal } from '../../components/forms/MasterSyncModal';
+import { CustomerName } from '../../components/clients/CustomerProfile';
 
 const EMPTY_FILTERS = { search: '', state: '', zone: '', registration_type: '', client_confirmation: '', transport: '', status: '', skip_payment: '' };
 const dateFmt = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
@@ -262,7 +263,7 @@ export default function Clients() {
                         <p className="cell-sub">{c.visit_no || '—'}</p>
                       </td>
                       <td className="cell-wrap">
-                        <p className="cell-main">{c.company_name}</p>
+                        <p className="cell-main"><CustomerName client={c} /></p>
                         <p className="cell-sub">
                           {[c.owner_name, c.owner_contact_no].filter(Boolean).join(' · ') || '—'}
                         </p>

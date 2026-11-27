@@ -5,7 +5,7 @@ import { badRequest, notFound } from '../utils/httpError.js';
 import { pendingBills, billsTotal } from './crmPayment.js';
 
 export const DEPTS = ['CUT', 'ROLL', 'IN_CHECKING'];
-export const DECISIONS = ['AVAILABLE', 'PARTIAL', 'ALT_COLOR', 'ALT_FABRIC', 'ALT_WIDTH', 'DROP'];
+export const DECISIONS = ['AVAILABLE', 'PARTIAL', 'SMALL_QTY', 'ALT_COLOR', 'ALT_FABRIC', 'ALT_WIDTH', 'DROP'];
 export const ALT_DECISIONS = new Set(['ALT_COLOR', 'ALT_FABRIC', 'ALT_WIDTH']);
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -222,26 +222,54 @@ export async function saveItemDecision(db, orderId, itemId, body, userId) {
   }
   const stock = (await stockByBase(db, [base]))[base] || {};
   const rates = ratesOf(stock);
-  const source = decision === 'DROP' ? null : body.source_type || null;
+  // A Cut item ("CUT …") is always taken from the Cut dept: Available needs ONE lot that covers the qty,
+  // Partially needs ONE lot for the part sent now, Small Qty combines the Cut dept's smaller lots
+  const takesStock = decision === 'AVAILABLE' || decision === 'PARTIAL' || decision === 'SMALL_QTY';
+  const cutItem = skuDept(item.sku_code) === 'CUT' && takesStock;
+  const source = decision === 'DROP' ? null : cutItem ? 'CUT' : body.source_type || null;
   const available = source ? stock[source]?.qty ?? 0 : null;
+  let biggestLot = 0;
+  if (cutItem) {
+    const { rows: lot } = await db.query(
+      "SELECT COALESCE(MAX(quantity), 0)::float AS m FROM inventory_stock WHERE inv_base(item_name) = $1 AND stock_type = 'CUT'",
+      [base]
+    );
+    biggestLot = lot[0].m;
+  }
   const deptLabel = { CUT: 'Cut dept', ROLL: 'Roll dept', IN_CHECKING: 'In Checking' }[source];
   let finalQty = item.qty;
   let panels = null;
   let panelLength = null;
 
-  if (decision === 'AVAILABLE' || decision === 'PARTIAL') {
+  if (takesStock) {
     if (!source) throw badRequest('Choose the department the stock comes from');
   }
-  if (decision === 'AVAILABLE' && available < item.qty) {
-    throw badRequest(`Only ${available} available in ${deptLabel} — required ${item.qty}. Choose Partially or an alternative.`);
+  if (decision === 'AVAILABLE' && cutItem && biggestLot < item.qty) {
+    throw badRequest(`No single Cut lot has ${item.qty} (biggest lot ${biggestLot}) — choose Small Qty to combine the Cut lots`);
+  }
+  if (decision === 'AVAILABLE' && !cutItem && available < item.qty) {
+    throw badRequest(`Only ${available} available in ${deptLabel} — required ${item.qty}. Choose Partially, Small Qty or an alternative.`);
   }
   if (decision === 'PARTIAL') {
+    // Part of the qty now, the rest delivered later
+    if (!body.partial_qty) throw badRequest('Enter the qty to deliver now');
+    finalQty = round2(body.partial_qty);
+    if (finalQty >= item.qty) throw badRequest(`${finalQty} covers the full requirement (${item.qty}) — choose Available instead`);
+    if (finalQty > available) throw badRequest(`${finalQty} is more than the ${available} available in ${deptLabel}`);
+    if (cutItem && biggestLot < finalQty) throw badRequest(`No single Cut lot has ${finalQty} (biggest lot ${biggestLot}) — choose Small Qty to combine the Cut lots`);
+  }
+  if (decision === 'SMALL_QTY') {
     if (!body.panels || !body.panel_length) throw badRequest('Enter No. of Panels and Length');
     panels = body.panels;
     panelLength = body.panel_length;
     finalQty = round2(panels * panelLength);
     if (finalQty > available) throw badRequest(`${panels} × ${panelLength} = ${finalQty} is more than the ${available} available in ${deptLabel}`);
-    if (finalQty >= item.qty) throw badRequest(`${finalQty} covers the full requirement (${item.qty}) — choose Available instead`);
+    if (cutItem) {
+      if (finalQty > item.qty) throw badRequest(`${finalQty} is more than the ${item.qty} required`);
+      if (finalQty >= item.qty && biggestLot >= item.qty) throw badRequest(`A single Cut lot covers ${item.qty} — choose Available instead`);
+    } else if (finalQty >= item.qty) {
+      throw badRequest(`${finalQty} covers the full requirement (${item.qty}) — choose Available instead`);
+    }
   }
   if (ALT_DECISIONS.has(decision) && !altItem && !body.note) throw badRequest('Choose an alternative item or write it in the note');
   if (decision === 'DROP') finalQty = 0;
@@ -285,7 +313,7 @@ export async function nextOrderNo(db, mode) {
   return `${prefix}${String(Number(n[0].n) + 1).padStart(4, '0')}`;
 }
 
-const DECISION_LABEL = { AVAILABLE: 'available', PARTIAL: 'partial', ALT_COLOR: 'alt. color', ALT_FABRIC: 'alt. fabric', ALT_WIDTH: 'alt. width', DROP: 'dropped' };
+const DECISION_LABEL = { AVAILABLE: 'available', PARTIAL: 'partial', SMALL_QTY: 'small qty', ALT_COLOR: 'alt. color', ALT_FABRIC: 'alt. fabric', ALT_WIDTH: 'alt. width', DROP: 'dropped' };
 
 /** All lines decided -> Picking; the real order no. is assigned the first time an order reaches Picking. */
 export async function completeStockCheck(db, orderId, userId) {
@@ -297,10 +325,16 @@ export async function completeStockCheck(db, orderId, userId) {
   const pending = rows.filter((r) => !r.decision).length;
   if (pending) throw badRequest(`${pending} item(s) are not stock-checked yet`);
   if (rows.every((r) => r.decision === 'DROP')) throw badRequest('Every item is dropped — hold or cancel the order instead');
-  const d = await stockDetail(db, o.id);
-  if (!d.proforma) throw badRequest('Generate the Proforma Invoice first');
-  if (d.proforma.stale) throw badRequest('Items changed after the Proforma Invoice was made — regenerate it first');
-  if (d.cash.is_cash && !d.advance) throw badRequest('Cash customer — record the advance payment before Picking');
+  let d = await stockDetail(db, o.id);
+  if (d.cash.is_cash) {
+    if (!d.proforma) throw badRequest('Generate the Proforma Invoice first');
+    if (d.proforma.stale) throw badRequest('Items changed after the Proforma Invoice was made — regenerate it first');
+    if (!d.advance) throw badRequest('Cash customer — record the advance payment before Picking');
+  } else if (!d.proforma || d.proforma.stale) {
+    // Not a cash customer: straight to Picking — the Proforma (made for every order, not shared) is created / refreshed here
+    await generateProforma(db, o.id, userId);
+    d = await stockDetail(db, o.id);
+  }
 
   const orderNo = o.system_order_no || (await nextOrderNo(db, o.order_mode));
   const counts = {};

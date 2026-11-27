@@ -350,14 +350,22 @@ export const lookupTransports = async (req, res) => {
   res.json({ data: rows });
 };
 
-/** SKU codes from inventory stock (one row per item name). */
+/** SKU codes from inventory stock (one row per item name). Cut orders: Cut Dept items first, Roll items only when no Cut item matches. */
 export const lookupSkus = async (req, res) => {
-  const { rows } = await query(
-    `SELECT MIN(item_name) AS sku_code, MAX(catalogue_name) AS catalogue_name, MAX(unit) AS unit,
-            SUM(quantity)::float AS stock_qty, (array_agg(image_url) FILTER (WHERE image_url IS NOT NULL))[1] AS image_url
-       FROM inventory_stock WHERE item_name ILIKE $1
-      GROUP BY item_key ORDER BY MIN(item_name) LIMIT 25`,
-    [like(req.query.search)]
-  );
+  const find = async (stockType) => {
+    const { rows } = await query(
+      `SELECT MIN(item_name) AS sku_code, MAX(catalogue_name) AS catalogue_name, MAX(unit) AS unit,
+              SUM(quantity)::float AS stock_qty, (array_agg(image_url) FILTER (WHERE image_url IS NOT NULL))[1] AS image_url
+         FROM inventory_stock WHERE item_name ILIKE $1 AND ($2::text IS NULL OR stock_type = $2)
+        GROUP BY item_key ORDER BY MIN(item_name) LIMIT 25`,
+      [like(req.query.search), stockType]
+    );
+    return rows;
+  };
+  let rows;
+  if (req.query.type === 'CUT') {
+    rows = await find('CUT');
+    if (!rows.length) rows = await find('ROLL');
+  } else rows = await find(null);
   res.json({ data: await signImageFields(rows, ['image_url']) });
 };

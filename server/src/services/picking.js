@@ -46,6 +46,7 @@ export async function orderLines(db, orderIds) {
     db.query(
       `SELECT i.id, i.order_id, i.sort_order, i.sku_code, i.catalogue_name, i.unit,
               i.cut_qty::float AS cut_qty, i.wastage_qty::float AS wastage_qty, i.cut_lot_no, i.qty::float AS ordered_qty, s.decision, s.source_type,
+              s.panels, s.panel_length::float AS panel_length, s.note AS check_note,
               COALESCE(s.alt_item, i.sku_code) AS item_name, inv_base(COALESCE(s.alt_item, i.sku_code)) AS base,
               COALESCE(s.final_qty, i.qty)::float AS required
          FROM o2d_order_items i LEFT JOIN o2d_item_stock_checks s ON s.item_id = i.id

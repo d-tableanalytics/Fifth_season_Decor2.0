@@ -91,7 +91,7 @@ export default function App() {
           <Route
             path="/labels/print"
             element={
-              <RequirePermission perm="label_design">
+              <RequirePermission perm={['label_design', 'o2d_cut', 'o2d_roll']}>
                 <LabelPrint />
               </RequirePermission>
             }
