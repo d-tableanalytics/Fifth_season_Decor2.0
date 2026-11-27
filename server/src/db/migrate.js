@@ -24,8 +24,10 @@ const DEFAULT_ROLES = [
       crm_followups: ['view', 'create', 'edit', 'delete'],
       dispatch_pending: ['view', 'create', 'edit', 'delete'],
       dispatch_completed: ['view', 'edit'],
-      tasks_mine: ['view', 'create', 'edit'],
-      tasks_all: ['view', 'create', 'edit', 'delete'],
+      task_dashboard: ['view'],
+      tasks_mine: ['view', 'edit'],
+      tasks_all: ['view', 'edit'],
+      pc_main: ['view', 'edit'],
       employees: ['view', 'create', 'edit'],
       roles: ['view'],
     },
@@ -41,7 +43,8 @@ const DEFAULT_ROLES = [
       client_master: ['view'],
       crm_leads: ['view', 'create', 'edit'],
       crm_followups: ['view', 'create', 'edit'],
-      tasks_mine: ['view', 'create', 'edit'],
+      task_dashboard: ['view'],
+      tasks_mine: ['view', 'edit'],
     },
   },
 ];
@@ -60,6 +63,7 @@ const ensureRole = async (client, { name, description, isSuper = false, isSystem
 const run = async () => {
   const schema = await readFile(new URL('./schema.sql', import.meta.url), 'utf8');
   await pool.query(schema);
+  await pool.query(await readFile(new URL('./tasks.sql', import.meta.url), 'utf8'));
   console.log('✔ Schema applied');
 
   await withTransaction(async (client) => {

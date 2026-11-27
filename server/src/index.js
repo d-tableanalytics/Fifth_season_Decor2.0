@@ -19,6 +19,10 @@ import publicRoutes from './routes/public.routes.js';
 import labelRoutes from './routes/labels.routes.js';
 import dispatchPlanningRoutes from './routes/dispatchPlanning.routes.js';
 import dispatchHandoverRoutes from './routes/dispatchHandover.routes.js';
+import holidayRoutes from './routes/holidays.routes.js';
+import notificationRoutes from './routes/notifications.routes.js';
+import taskRoutes from './routes/tasks.routes.js';
+import { startTaskJob } from './jobs/taskJob.js';
 import { pool } from './config/db.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
@@ -60,9 +64,15 @@ app.use('/api/public', publicRoutes);
 app.use('/api/labels', labelRoutes);
 app.use('/api/dispatch-planning', dispatchPlanningRoutes);
 app.use('/api/dispatch-handover', dispatchHandoverRoutes);
+app.use('/api/holidays', holidayRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/tasks', taskRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✔ API running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✔ API running on http://localhost:${PORT}`);
+  startTaskJob();
+});
