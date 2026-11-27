@@ -13,6 +13,9 @@ import './styles/masters.css';
 import './styles/inventory.css';
 import './styles/forms.css';
 import './styles/labels.css';
+import './styles/notifications.css';
+import './styles/tasks.css';
+import './styles/taskDash.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

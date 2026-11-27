@@ -60,8 +60,9 @@ export const NAV_ITEMS = [
     label: 'Task Management',
     icon: ListChecks,
     children: [
-      { to: '/tasks/mine', label: 'My Tasks', perm: 'tasks_mine' },
-      { to: '/tasks/all', label: 'All Tasks', perm: 'tasks_all' },
+      { to: '/tasks/dashboard', label: 'Dashboard', perm: 'task_dashboard', element: 'task_dashboard' },
+      { to: '/tasks', label: 'Tasks', perm: 'tasks_mine', element: 'tasks' },
+      { to: '/tasks/pc', label: 'PC Dashboard', perm: 'pc_main', element: 'task_pc' },
     ],
   },
   {
@@ -77,6 +78,7 @@ export const NAV_ITEMS = [
     children: [
       { to: '/masters/employees', label: 'Staff / Employee Master', perm: 'employees', element: 'employees' },
       { to: '/masters/roles', label: 'Roles & Permissions', perm: 'roles', element: 'roles' },
+      { to: '/masters/holidays', label: 'Holidays', perm: 'holidays', element: 'holidays' },
       { to: '/masters/zones', label: 'Zone Mapping', perm: 'route_planning', element: 'zones' },
       { to: '/masters/whatsapp', label: 'WhatsApp Integration', perm: 'whatsapp', element: 'whatsapp' },
       { to: '/masters/labels', label: 'Label Design', perm: 'label_design', element: 'labels' },

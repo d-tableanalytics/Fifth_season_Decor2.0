@@ -29,8 +29,14 @@ export const MODULES = [
   // Dispatch Handover log: view = entries, pending, lists; edit = save handovers, edit entries, manage handover-by / driver lists
   { key: 'dispatch_pending', label: 'Dispatch Handover', group: 'Dispatch', actions: ['view', 'edit'] },
   { key: 'dispatch_completed', label: 'Dispatched', group: 'Dispatch', actions: ['view', 'edit'] },
-  { key: 'tasks_mine', label: 'My Tasks', group: 'Task Management', actions: ['view', 'create', 'edit'] },
-  { key: 'tasks_all', label: 'All Tasks', group: 'Task Management', actions: ALL },
+  // Task Management. tasks_mine = Tasks page (my tasks + tasks I assigned): edit covers add/edit/work, delete removes tasks I assigned
+  { key: 'task_dashboard', label: 'Task Dashboard', group: 'Task Management', actions: ['view'] },
+  { key: 'tasks_mine', label: 'Tasks (my tasks, tasks I assigned)', group: 'Task Management', actions: ['view', 'edit', 'delete'] },
+  // tasks_all: view = "All data" (everybody's tasks + dashboard); edit = edit other people's tasks (reassign, verify)
+  { key: 'tasks_all', label: 'All Tasks (view = all data, edit = edit others’ tasks)', group: 'Task Management', actions: ['view', 'edit'] },
+  { key: 'tasks_revert', label: 'Undo non-functional turn', group: 'Task Management', actions: ['edit'] },
+  { key: 'pc_main', label: 'PC Dashboard (edit = reassign)', group: 'Task Management', actions: ['view', 'edit'] },
+  { key: 'holidays', label: 'Holidays & Weekly Off', group: 'Masters', actions: ALL },
   { key: 'employees', label: 'Staff / Employee Master', group: 'Masters', actions: ALL },
   { key: 'roles', label: 'Roles & Permissions', group: 'Masters', actions: ALL },
   { key: 'bills_receivable', label: 'Bills Receivable', group: 'Payment', actions: ['view', 'edit'] }, // edit = sync from sheet

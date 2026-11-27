@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { ProtectedRoute, PublicOnlyRoute, RequirePermission, HomeRedirect } from './routes/guards';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { ALL_NAV_ITEMS } from './components/layout/navConfig';
@@ -38,9 +38,16 @@ const PickingPrint = lazy(() => import('./pages/o2d/PickingPrint'));
 const ProformaView = lazy(() => import('./pages/ProformaView'));
 const TrackOrder = lazy(() => import('./pages/TrackOrder'));
 const PaymentPromise = lazy(() => import('./pages/PaymentPromise'));
+const Holidays = lazy(() => import('./pages/masters/Holidays'));
+const Tasks = lazy(() => import('./pages/tasks/Tasks'));
+const TaskDashboard = lazy(() => import('./pages/tasks/TaskDashboard'));
+const PcDashboard = lazy(() => import('./pages/tasks/PcDashboard'));
 
 // Real pages by navConfig `element` / path; anything else renders "Coming soon"
-const PAGES = { '/dashboard': Dashboard, inventory: Inventory, employees: Employees, roles: Roles, clients: Clients, transports: Transports, cut_orders: CutOrders, roll_orders: RollOrders, zones: ZoneMapping, bills: BillsReceivable, whatsapp: WhatsApp, crm_cut: CrmCut, crm_roll: CrmRoll, crm_approval: ManagerApproval, planning_dispatch: PlanningToDispatch, dispatch_handover: Handover, delivery_planning: DeliveryPlanning, labels: LabelDesigns };
+const PAGES = { '/dashboard': Dashboard, inventory: Inventory, employees: Employees, roles: Roles, clients: Clients, transports: Transports, cut_orders: CutOrders, roll_orders: RollOrders, zones: ZoneMapping, bills: BillsReceivable, whatsapp: WhatsApp, crm_cut: CrmCut, crm_roll: CrmRoll, crm_approval: ManagerApproval, planning_dispatch: PlanningToDispatch, dispatch_handover: Handover, delivery_planning: DeliveryPlanning, labels: LabelDesigns, holidays: Holidays, tasks: Tasks, task_dashboard: TaskDashboard, task_pc: PcDashboard };
+
+// Task pages re-mount when the query string changes, so a notification link opens the right task even on the same page
+const KeyedBySearch = ({ Page }) => <Page key={useLocation().search} />;
 
 // Detail pages (not in the sidebar). View permission is enough to open; forms go read-only without edit.
 const DETAIL_ROUTES = [
@@ -116,7 +123,7 @@ export default function App() {
                   element={
                     <RequirePermission perm={item.perm}>
                       <Suspense fallback={<Loader label="Loading…" />}>
-                        <Page />
+                        {item.to.startsWith('/tasks') ? <KeyedBySearch Page={Page} /> : <Page />}
                       </Suspense>
                     </RequirePermission>
                   }

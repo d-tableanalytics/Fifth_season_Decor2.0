@@ -1,16 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Search, Bell, ChevronDown, ChevronsLeft, User, LogOut, Package, Scissors, IndianRupee } from 'lucide-react';
+import { Menu, Search, ChevronDown, ChevronsLeft, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { Badge } from '../ui/Badge';
-
-// Sample notifications until a notifications API exists
-const NOTIFICATIONS = [
-  { id: 1, icon: Package, text: 'New order #FSD-1042 from Jaipur', time: '5 min ago', unread: true },
-  { id: 2, icon: Scissors, text: 'Cutting completed for #FSD-1038', time: '1 hr ago', unread: true },
-  { id: 3, icon: IndianRupee, text: 'Payment of ₹48,500 received from Pune', time: '3 hr ago', unread: false },
-];
+import { NotificationBell } from './NotificationBell';
 
 function useClickOutside(ref, onOutside) {
   useEffect(() => {
@@ -28,7 +21,6 @@ export function Topbar({ collapsed, onToggleCollapse, onOpenMobile }) {
   const menusRef = useRef(null);
   useClickOutside(menusRef, () => setMenu(null));
 
-  const unread = NOTIFICATIONS.filter((n) => n.unread).length;
   const initial = (user?.name || 'U').trim()[0].toUpperCase();
   const roleLabel = user?.role?.name;
 
@@ -58,33 +50,7 @@ export function Topbar({ collapsed, onToggleCollapse, onOpenMobile }) {
 
       <div className="topbar__actions" ref={menusRef}>
 
-        <div className="dropdown">
-          <button className="icon-btn" onClick={() => setMenu(menu === 'notif' ? null : 'notif')} aria-label="Notifications">
-            <Bell size={17} strokeWidth={1.75} />
-            {unread > 0 && <span className="icon-btn__count">{unread}</span>}
-          </button>
-          {menu === 'notif' && (
-            <div className="dropdown__panel dropdown__panel--wide">
-              <div className="dropdown__head">
-                <strong>Notifications</strong>
-                <Badge variant="brand" size="sm">
-                  {unread} new
-                </Badge>
-              </div>
-              {NOTIFICATIONS.map(({ id, icon: Icon, text, time, unread: u }) => (
-                <div key={id} className={`notif ${u ? 'is-unread' : ''}`}>
-                  <span className="notif__icon">
-                    <Icon size={16} />
-                  </span>
-                  <div>
-                    <p className="notif__text">{text}</p>
-                    <p className="notif__time">{time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <NotificationBell open={menu === 'notif'} onToggle={() => setMenu(menu === 'notif' ? null : 'notif')} onClose={() => setMenu(null)} />
 
         <div className="dropdown">
           <button className="user-chip" onClick={() => setMenu(menu === 'user' ? null : 'user')} aria-label="Account menu">
