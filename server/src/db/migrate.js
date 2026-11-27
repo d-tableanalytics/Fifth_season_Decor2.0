@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import bcrypt from 'bcryptjs';
 import { pool, withTransaction } from '../config/db.js';
 import { sanitizePermissions } from '../config/modules.js';
+import { EVENTS } from '../config/whatsapp.js';
 import { replaceRolePermissions } from '../services/access.js';
 
 const SUPER_ROLE = 'Super Administrator';
@@ -111,6 +112,16 @@ const run = async () => {
         [SEED_ADMIN_NAME || 'Admin', SEED_ADMIN_EMAIL, hash, roleIds[SUPER_ROLE]]
       );
       console.log(rowCount ? `✔ Admin created: ${SEED_ADMIN_EMAIL}` : `• Admin already exists: ${SEED_ADMIN_EMAIL}`);
+    }
+
+    // Starter WhatsApp templates: one per event that has none, created OFF — an admin reviews and enables them
+    for (const [event, ev] of Object.entries(EVENTS)) {
+      await client.query(
+        `INSERT INTO whatsapp_templates (name, event, body, description, enabled)
+         SELECT $1, $2::varchar, $3, 'Starter template — review and enable when ready', FALSE
+          WHERE NOT EXISTS (SELECT 1 FROM whatsapp_templates WHERE event = $2::varchar AND deleted_at IS NULL)`,
+        [ev.label, event, ev.starter]
+      );
     }
 
     // Anyone still without a role gets Staff; then make role mandatory

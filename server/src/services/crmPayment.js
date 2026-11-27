@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { query } from '../config/db.js';
-import { resolveRecipients, sendAndLog } from './whatsapp.js';
+import { resolveRecipients, sendAndLog, eventMessage } from './whatsapp.js';
 
 export const LINK_TTL_DAYS = 7;
 export const LEDGER_RECIPIENTS = ['CLIENT_OWNER', 'CLIENT_ACCOUNTANT', 'CLIENT_SALES_PERSON', 'CLIENT_GROUP'];
@@ -82,13 +82,18 @@ export async function notifySkipPaymentOrder(orderId, userId) {
     );
     const o = rows[0];
     if (!o) return;
-    const message = [
+    const fallback = [
       '*New order — Skip Payment customer*',
       `Enquiry: ${o.enquiry_number} (${o.order_type === 'CUT' ? 'Cut' : 'Roll'})`,
       `Client: ${o.client_id} — ${o.company_name}`,
       `Items: ${o.lines} line(s)`,
       'Payment check skipped — order moved to Stock Check.',
     ].join('\n');
+    const message = await eventMessage(
+      'SKIP_PAYMENT_ORDER',
+      { enquiry_number: o.enquiry_number, order_type: o.order_type === 'CUT' ? 'Cut' : 'Roll', client_id: o.client_id, company_name: o.company_name, item_count: o.lines },
+      fallback
+    );
     for (const r of await resolveRecipients(['FSD_MANAGER', 'FSD_SALES_PERSON'], o.client_ref)) {
       if (r.to) await sendAndLog({ triggerKey: 'SKIP_PAYMENT_ORDER', recipient: r, clientId: o.client_ref, message, userId });
     }
@@ -112,12 +117,12 @@ export async function issueLink(db, orderId, userId, { sent = false } = {}) {
 
 const MAX_LEDGER_LINES = 40;
 
-export function ledgerMessage({ companyName, enquiryNumber, bills, link }) {
+export async function ledgerMessage({ companyName, enquiryNumber, bills, link }) {
   const lines = bills.slice(0, MAX_LEDGER_LINES).map(
     (b, i) => `${i + 1}. ${b.bill_reference || '—'} · ${day(b.bill_date)} · ${inr(b.amount)}${b.days_overdue > 0 ? ` (${b.days_overdue} days overdue)` : ''}`
   );
   if (bills.length > MAX_LEDGER_LINES) lines.push(`…and ${bills.length - MAX_LEDGER_LINES} more`);
-  return [
+  const fallback = [
     '*Fifth Seasons Decor — Payment Reminder*',
     `Dear ${companyName},`,
     `Your order ${enquiryNumber} is waiting for payment clearance. Pending invoices:`,
@@ -130,6 +135,11 @@ export function ledgerMessage({ companyName, enquiryNumber, bills, link }) {
     link,
     `(Link valid for ${LINK_TTL_DAYS} days)`,
   ].join('\n');
+  return eventMessage(
+    'PAYMENT_LEDGER',
+    { company_name: companyName, enquiry_number: enquiryNumber, pending_invoices: lines.join('\n'), total_pending: inr(total(bills)), link, link_valid_days: LINK_TTL_DAYS },
+    fallback
+  );
 }
 
 export { total as billsTotal };

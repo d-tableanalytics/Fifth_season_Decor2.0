@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { query, withTransaction } from '../config/db.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { pendingBills, hasOverdue, billsTotal, issueLink, ledgerMessage, LEDGER_RECIPIENTS } from '../services/crmPayment.js';
-import { resolveRecipients, sendAndLog } from '../services/whatsapp.js';
+import { resolveRecipients, sendAndLog, eventMessage } from '../services/whatsapp.js';
 import {
   DECISIONS, DEPTS, stockDetail, itemAvailability, saveItemDecision, holdFromStockCheck, completeStockCheck, generateProforma, recordAdvance,
 } from '../services/stockCheck.js';
@@ -124,7 +124,7 @@ router.post('/payment-check/:id/send-ledger', payEdit, async (req, res) => {
     return { o, bills, token: await issueLink(db, o.id, req.user.id, { sent: true }) };
   });
   const link = publicLink(token);
-  const message = ledgerMessage({ companyName: o.company_name, enquiryNumber: o.enquiry_number, bills, link });
+  const message = await ledgerMessage({ companyName: o.company_name, enquiryNumber: o.enquiry_number, bills, link });
   const results = [];
   for (const r of await resolveRecipients(recipients, o.client_ref)) {
     if (!r.to) {
@@ -337,13 +337,24 @@ router.post('/stock-check/:id/proforma/share', stockEdit, async (req, res) => {
   if (d.proforma.stale) throw badRequest('Items changed after the Proforma Invoice was made — regenerate it first');
   if (!d.cash.is_cash) throw badRequest('Proforma Invoice is shared only with cash customers');
   const link = appLink(`/proforma/${d.proforma.share_token}`);
-  const message = [
+  const fallback = [
     '*Fifth Seasons Decor — Proforma Invoice*',
     `Dear ${d.client.company_name},`,
     `Proforma Invoice ${d.proforma.proforma_no} for your order ${d.enquiry_number}: *₹${d.proforma.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}*`,
     'Please make the advance payment so we can start processing your order.',
     link,
   ].join('\n');
+  const message = await eventMessage(
+    'PROFORMA_SHARE',
+    {
+      company_name: d.client.company_name,
+      proforma_no: d.proforma.proforma_no,
+      enquiry_number: d.enquiry_number,
+      amount: `₹${d.proforma.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
+      link,
+    },
+    fallback
+  );
   const results = [];
   for (const r of await resolveRecipients(recipients, d.client.id)) {
     if (!r.to) {
@@ -376,13 +387,14 @@ async function sendTrackingLink({ orderNo, trackingToken, clientRef, companyName
     const [group, owner] = await resolveRecipients(['CLIENT_GROUP', 'CLIENT_OWNER'], clientRef);
     const r = group.to ? group : owner;
     if (!r.to) return { link, sent: false, reason: 'No WhatsApp group or owner number on the client' };
-    const message = [
+    const fallback = [
       '*Fifth Seasons Decor — Order Confirmed*',
       `Dear ${companyName},`,
       `Your order *${orderNo}* is confirmed and moved to picking.`,
       'Track your order here:',
       link,
     ].join('\n');
+    const message = await eventMessage('ORDER_TRACKING', { company_name: companyName, order_no: orderNo, link }, fallback);
     const log = await sendAndLog({ triggerKey: 'ORDER_TRACKING', recipient: r, clientId: clientRef, message, userId });
     return { link, sent: log.status === 'SENT', to: r.label, reason: log.error };
   } catch (err) {

@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { query, withTransaction } from '../config/db.js';
-import { RECIPIENTS, RECIPIENT_KEYS, SETTING_KEYS } from '../config/whatsapp.js';
-import { connectionStatus, fetchGroupsPage, GROUP_PAGE_SIZE, resolveRecipients, sendAndLog, getSetting } from '../services/whatsapp.js';
+import { RECIPIENTS, RECIPIENT_KEYS, SETTING_KEYS, EVENTS, EVENT_KEYS } from '../config/whatsapp.js';
+import { connectionStatus, fetchGroupsPage, GROUP_PAGE_SIZE, resolveRecipients, sendAndLog, getSetting, normalizePlaceholders } from '../services/whatsapp.js';
 import { runLogged, syncLogs } from '../services/masterSync.js';
 import { badRequest, conflict, notFound } from '../utils/httpError.js';
 
@@ -239,6 +239,91 @@ router.post('/test', manage, async (req, res) => {
     results.push({ ...r, status: log.status, error: log.error });
   }
   res.json({ data: results });
+});
+
+/* ---------------- Templates ---------------- */
+
+router.get('/events', view, (req, res) => res.json({ data: EVENTS }));
+
+const templateBody = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(150),
+  event: z.enum(EVENT_KEYS),
+  body: z.string().trim().min(1, 'Message body is required').max(4000),
+  description: z.string().trim().max(500).optional().nullable(),
+  enabled: z.boolean().optional(),
+});
+
+const dupEvent = (err) => {
+  if (err.code === '23505') throw conflict('This event already has a template — edit it instead');
+  throw err;
+};
+
+router.get('/templates', view, async (req, res) => {
+  const { rows } = await query(
+    'SELECT id, name, event, body, description, enabled, created_at, updated_at FROM whatsapp_templates WHERE deleted_at IS NULL ORDER BY created_at DESC'
+  );
+  res.json({ data: rows });
+});
+
+router.post('/templates', manage, async (req, res) => {
+  const b = templateBody.parse(req.body);
+  const { rows } = await query(
+    `INSERT INTO whatsapp_templates (name, event, body, description, enabled, created_by, updated_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$6) RETURNING id`,
+    [b.name, b.event, normalizePlaceholders(b.body), b.description || null, b.enabled ?? true, req.user.id]
+  ).catch(dupEvent);
+  res.status(201).json({ data: rows[0], message: 'Template created' });
+});
+
+router.put('/templates/:id', manage, async (req, res) => {
+  const b = templateBody.partial().parse(req.body);
+  const { rowCount } = await query(
+    `UPDATE whatsapp_templates SET name = COALESCE($1, name), event = COALESCE($2, event), body = COALESCE($3, body),
+            description = COALESCE($4, description), enabled = COALESCE($5, enabled), updated_by = $6, updated_at = NOW()
+      WHERE id = $7 AND deleted_at IS NULL`,
+    [b.name ?? null, b.event ?? null, b.body == null ? null : normalizePlaceholders(b.body), b.description ?? null, b.enabled ?? null, req.user.id, req.params.id]
+  ).catch(dupEvent);
+  if (!rowCount) throw notFound('Template not found');
+  res.json({ message: 'Template updated' });
+});
+
+router.delete('/templates/:id', manage, async (req, res) => {
+  const { rowCount } = await query('UPDATE whatsapp_templates SET deleted_at = NOW(), updated_by = $1 WHERE id = $2 AND deleted_at IS NULL', [req.user.id, req.params.id]);
+  if (!rowCount) throw notFound('Template not found');
+  res.json({ message: 'Template deleted' });
+});
+
+/* ---------------- Send history ---------------- */
+
+router.get('/logs', view, async (req, res) => {
+  const q = z
+    .object({
+      status: z.enum(['SENT', 'FAILED']).optional(),
+      event: z.string().max(60).optional(),
+      search: z.string().trim().max(100).optional(),
+      limit: z.coerce.number().int().min(1).max(300).default(100),
+    })
+    .parse(req.query);
+  const params = [];
+  const where = [];
+  if (q.status) where.push(`m.status = $${params.push(q.status)}`);
+  if (q.event) where.push(`m.trigger_key = $${params.push(q.event)}`);
+  if (q.search) {
+    const p = params.push(`%${q.search.replace(/[%_\\]/g, (c) => `\\${c}`)}%`);
+    where.push(`(m.to_number ILIKE $${p} OR m.message ILIKE $${p} OR c.company_name ILIKE $${p})`);
+  }
+  const lim = params.push(q.limit);
+  const { rows } = await query(
+    `SELECT m.id, m.trigger_key, m.recipient_type, m.to_number, m.message, m.status, m.error, m.created_at,
+            c.client_id, c.company_name, u.name AS sent_by_name
+       FROM whatsapp_messages m
+       LEFT JOIN clients c ON c.id = m.client_ref
+       LEFT JOIN users u ON u.id = m.created_by
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY m.created_at DESC LIMIT $${lim}`,
+    params
+  );
+  res.json({ data: rows });
 });
 
 export default router;

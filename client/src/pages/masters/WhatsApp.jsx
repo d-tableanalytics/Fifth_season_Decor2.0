@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw, Search, Link2, Unlink, Wand2, Send, CheckCircle2, XCircle, MessageCircle, Users } from 'lucide-react';
+import { RefreshCw, Search, Link2, Unlink, Wand2, Send, CheckCircle2, XCircle, MessageCircle, Users, FileText, History } from 'lucide-react';
+import { TemplatesTab, HistoryTab } from './WhatsAppTemplates';
 import api, { getErrorMessage } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -66,9 +67,18 @@ export default function WhatsApp() {
         <button role="tab" aria-selected={tab === 'settings'} className={`stage-tab ${tab === 'settings' ? 'is-active' : ''}`} onClick={() => setTab('settings')}>
           <MessageCircle size={15} /> Recipients &amp; Test
         </button>
+        <button role="tab" aria-selected={tab === 'templates'} className={`stage-tab ${tab === 'templates' ? 'is-active' : ''}`} onClick={() => setTab('templates')}>
+          <FileText size={15} /> Templates
+        </button>
+        <button role="tab" aria-selected={tab === 'history'} className={`stage-tab ${tab === 'history' ? 'is-active' : ''}`} onClick={() => setTab('history')}>
+          <History size={15} /> Send History
+        </button>
       </div>
 
-      {tab === 'groups' ? <GroupsTab manage={manage} /> : <SettingsTab manage={manage} />}
+      {tab === 'groups' && <GroupsTab manage={manage} />}
+      {tab === 'settings' && <SettingsTab manage={manage} />}
+      {tab === 'templates' && <TemplatesTab manage={manage} />}
+      {tab === 'history' && <HistoryTab />}
     </div>
   );
 }
