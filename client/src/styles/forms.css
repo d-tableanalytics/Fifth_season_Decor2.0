@@ -1063,3 +1063,18 @@
 .cprofile__top li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cprofile__pending { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-2); }
 .cprofile__pending p { margin: 2px 0 0; }
+.cprofile__paid { max-height: 360px; overflow: auto; }
+
+/* ---------- Order activity log ---------- */
+.activity { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.activity__toggle { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--text-2); cursor: pointer; }
+.activity__filter { margin: 10px 0 6px; max-width: 100%; }
+.activity__list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; max-height: 420px; overflow: auto; }
+.activity__list li { display: grid; grid-template-columns: 170px 150px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.activity__when { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.activity__who { font-weight: 600; overflow-wrap: anywhere; }
+.activity__what { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.activity__text { flex-basis: 100%; color: var(--text-2); overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .activity__list li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}

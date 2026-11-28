@@ -205,7 +205,7 @@ export function PickingModal({ id, onClose, onChanged }) {
                             <div className="cell-sub picking__decision">
                               Stock Check: <Badge size="sm" variant={DECISION[l.decision]?.variant}>{DECISION[l.decision]?.label || l.decision}</Badge>
                               {l.source_type && <> · {DEPT_LABEL[l.source_type]}</>}
-                              {l.decision === 'SMALL_QTY' && l.panels && <> · {l.panels} × {qty(l.panel_length)} {l.unit}</>}
+                              {(l.decision === 'SMALL_QTY' || l.decision === 'ALT_WIDTH') && l.panels && <> · {l.panels} × {qty(l.panel_length)} {l.unit}</>}
                               {l.decision === 'PARTIAL' && <> · ordered {qty(l.ordered_qty)}, rest {qty(l.ordered_qty - l.required)} later</>}
                               {l.check_note && <div>{l.check_note}</div>}
                             </div>

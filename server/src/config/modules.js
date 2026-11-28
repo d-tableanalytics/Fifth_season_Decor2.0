@@ -40,6 +40,7 @@ export const MODULES = [
   { key: 'employees', label: 'Staff / Employee Master', group: 'Masters', actions: ALL },
   { key: 'roles', label: 'Roles & Permissions', group: 'Masters', actions: ALL },
   { key: 'bills_receivable', label: 'Bills Receivable', group: 'Payment', actions: ['view', 'edit'] }, // edit = sync from sheet
+  { key: 'paid_bills', label: 'Paid Bills', group: 'Payment', actions: ['view', 'edit'] }, // edit = sync from sheet
   { key: 'label_design', label: 'Label Design', group: 'Masters', actions: ALL }, // view also allows printing labels
   { key: 'whatsapp', label: 'WhatsApp Integration', group: 'Masters', actions: ['view', 'edit'] }, // edit = fetch/link groups, settings, test send
   // Zone Mapping: view = ROUTEPLANNING_VIEW, edit = ROUTEPLANNING_MANAGE (add/edit/delete/backfill)

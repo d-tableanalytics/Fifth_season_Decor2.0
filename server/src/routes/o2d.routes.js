@@ -12,6 +12,7 @@ import deliveryNoteRoutes from './deliveryNote.routes.js';
 import packingRoutes from './packing.routes.js';
 import { z } from 'zod';
 import { listRemarks, addRemark } from '../services/orderRemarks.js';
+import { orderActivity } from '../services/activity.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -33,6 +34,8 @@ const anyModule = (actions) => (req, res, next) => {
   next();
 };
 router.get('/orders/:id/remarks', anyModule(['view']), async (req, res) => res.json({ data: await listRemarks(req.params.id) }));
+// Full who-did-what trail of an order (every step, item-wise)
+router.get('/orders/:id/activity', anyModule(['view']), async (req, res) => res.json({ data: await orderActivity(req.params.id) }));
 router.post('/orders/:id/remarks', anyModule(['edit', 'approve']), async (req, res) => {
   const { remark } = z.object({ remark: z.string({ message: 'Write a remark' }).trim().min(1, 'Write a remark').max(1000, 'At most 1000 characters') }).parse(req.body);
   await addRemark(req.params.id, remark, req.user.id);

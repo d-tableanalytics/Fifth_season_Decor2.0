@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Search, Wallet, Send, Link2, RefreshCw, Phone, CheckCircle2, XCircle } from 'lucide-react';
-import { crmApi, LEDGER_RECIPIENTS, inr, dayFmt, stampFmt } from '../../api/crm';
+import { crmApi, LEDGER_RECIPIENTS, inr, dayFmt, stampFmt, promiseHistoryText } from '../../api/crm';
 import { getErrorMessage } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -94,7 +94,7 @@ export default function PaymentCheck({ type = 'CUT' }) {
                       <td className="cell-sub">{stampFmt(pendingTab ? o.submitted_at : o.checked_at)}</td>
                       <td className="mono">{o.enquiry_number}</td>
                       <td className="mono mono--plain">{o.client_id}</td>
-                      <td className="cell-wrap cell-main"><CustomerName client={{ id: o.client_ref, client_id: o.client_id, company_name: o.company_name }} /></td>
+                      <td className="cell-wrap cell-main"><CustomerName client={{ id: o.client_ref, client_id: o.client_id, company_name: o.company_name }} /><div className="cell-sub">{promiseHistoryText(o.promise_history)}</div></td>
                       <td className="num">{o.pending_bills}</td>
                       <td className="num">{inr(o.pending_amount)}</td>
                       {pendingTab ? (
@@ -231,6 +231,7 @@ function PaymentCheckModal({ id, onClose, onChanged }) {
           <div className="crm-facts">
             <div><span>Status</span><Badge size="sm" variant={awaiting ? 'warning' : 'info'}>{awaiting ? 'Awaiting customer' : 'Pending manager approval'}</Badge></div>
             <div><span>Pending</span><strong>{inr(d.bills_total)}</strong><small>{d.bills.length} bill(s)</small></div>
+            <div><span>Payment requests</span><strong>{d.promise_history?.total || 0}</strong><small>{promiseHistoryText(d.promise_history)}</small></div>
             <div><span>Ledger sent</span><strong>{d.link_sent_at ? stampFmt(d.link_sent_at) : '—'}</strong>{d.link_sent_by && <small>by {d.link_sent_by}</small>}</div>
             {!awaiting && (
               <div><span>Promise</span><strong>{inr(d.promise_amount)} by {dayFmt(d.promise_date)}</strong>{d.customer_note && <small>{d.customer_note}</small>}</div>

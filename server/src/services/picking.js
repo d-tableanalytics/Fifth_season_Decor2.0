@@ -299,7 +299,7 @@ export async function savePicks(db, type, orderId, itemId, { tab, stockIds, iocM
   if (added.length || removed.length) {
     await logEvent(db, o.id, userId, 'STOCK_PICKED', {
       reason: `Line ${line.line} ${line.item_name}: ${added.length} piece(s) picked${removed.length ? `, ${removed.length} unticked` : ''} (${tab})`,
-      details: { line: line.line, item: line.item_name, tab, added, removed: removed.map((p) => ({ rack_no: p.rack_no, lot_no: p.lot_no, qty: p.qty })) },
+      details: { item_id: line.id, line: line.line, item: line.item_name, tab, added, removed: removed.map((p) => ({ rack_no: p.rack_no, lot_no: p.lot_no, qty: p.qty })) },
     });
   }
 }
@@ -315,7 +315,7 @@ export async function markNotFound(db, type, orderId, itemId, reason, userId) {
      ON CONFLICT (item_id) DO UPDATE SET reason = EXCLUDED.reason, batch_no = NULL, marked_by = EXCLUDED.marked_by, marked_at = NOW()`,
     [line.id, o.id, reason, userId]
   );
-  await logEvent(db, o.id, userId, 'NOT_FOUND', { reason: `Line ${line.line} ${line.item_name} not found${reason ? ` — ${reason}` : ''}` });
+  await logEvent(db, o.id, userId, 'NOT_FOUND', { reason: `Line ${line.line} ${line.item_name} not found${reason ? ` — ${reason}` : ''}`, details: { item_id: line.id, line: line.line } });
 }
 
 /* ---------------- Batches ---------------- */

@@ -32,6 +32,10 @@ const listQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 const TAB_STATUS = { awaiting: 'AWAITING_CUSTOMER', pending_approval: 'PENDING_APPROVAL' };
+/** How many payment promises (requests) the client has sent across all its orders, and how they were decided. */
+const PROMISE_HISTORY_SQL = `(SELECT json_build_object('total', COUNT(*), 'approved', COUNT(*) FILTER (WHERE ph.status = 'APPROVED'),
+    'rejected', COUNT(*) FILTER (WHERE ph.status = 'REJECTED'), 'pending', COUNT(*) FILTER (WHERE ph.status = 'PENDING'))
+   FROM payment_promise_requests ph JOIN o2d_orders po ON po.id = ph.order_id WHERE po.client_ref = c.id) AS promise_history`;
 const SEARCH_SQL = (n) => `(o.enquiry_number ILIKE $${n} OR c.client_id ILIKE $${n} OR c.company_name ILIKE $${n})`;
 
 /** Active order at Payment Check (row-locked when db is a transaction). */
@@ -61,7 +65,7 @@ router.get('/payment-check', payView, async (req, res) => {
                 WHERE o.status = 'ACTIVE' AND o.workflow_status = 'PAYMENT_CHECK' AND o.order_type = $1`;
   const [{ rows }, { rows: counts }] = await Promise.all([
     query(
-      `SELECT o.id, o.order_type, o.enquiry_number, o.client_ref, c.client_id, c.company_name, c.city,
+      `SELECT o.id, o.order_type, o.enquiry_number, o.client_ref, c.client_id, c.company_name, c.city, ${PROMISE_HISTORY_SQL},
               pc.pending_amount::float AS pending_amount, pc.pending_bills, pc.link_sent_at, pc.link_expires_at,
               pc.promise_date, pc.promise_amount::float AS promise_amount, pc.submitted_at, pc.created_at AS checked_at,
               COUNT(*) OVER()::int AS total_count
@@ -86,7 +90,7 @@ router.get('/payment-check/:id', payView, async (req, res) => {
       `SELECT o.id, o.order_type, o.enquiry_number, o.created_at, o.customer_remark,
               c.id AS client_ref, c.client_id, c.company_name, c.city, c.state, c.owner_name, c.owner_contact_no, c.owner_whatsapp_no,
               c.accounts_person_name, c.accounts_person_whatsapp_no, c.customer_sales_person_name, c.customer_sales_person_whatsapp_no,
-              c.customer_sales_person_contact, c.whatsapp_group_id, c.whatsapp_group_name, c.sales_person_emp_id,
+              c.customer_sales_person_contact, c.whatsapp_group_id, c.whatsapp_group_name, c.sales_person_emp_id, ${PROMISE_HISTORY_SQL},
               pc.status AS payment_status, pc.pending_amount::float AS pending_amount, pc.pending_bills, pc.link_sent_at,
               pc.link_expires_at, pc.promise_date, pc.promise_amount::float AS promise_amount, pc.customer_note, pc.submitted_at,
               u.name AS link_sent_by
@@ -186,7 +190,7 @@ router.get('/manager-approval', approvalView, async (req, res) => {
       `SELECT r.id, r.status, r.promise_date, r.promise_amount::float AS promise_amount, r.customer_note,
               r.pending_amount::float AS pending_amount, r.pending_bills, r.submitted_at, r.decided_at, r.decision_remark,
               u.name AS decided_by, o.id AS order_id, o.order_type, o.enquiry_number, o.status AS order_status, o.workflow_status,
-              c.client_id, c.company_name, COUNT(*) OVER()::int AS total_count
+              c.client_id, c.company_name, ${PROMISE_HISTORY_SQL}, COUNT(*) OVER()::int AS total_count
          FROM payment_promise_requests r JOIN o2d_orders o ON o.id = r.order_id JOIN clients c ON c.id = o.client_ref
          LEFT JOIN users u ON u.id = r.decided_by
         WHERE ${where}

@@ -69,7 +69,10 @@ export const NAV_ITEMS = [
     key: 'payment',
     label: 'Payment',
     icon: Wallet,
-    children: [{ to: '/payment/bills-receivable', label: 'Bills Receivable', perm: 'bills_receivable', element: 'bills' }],
+    children: [
+      { to: '/payment/bills-receivable', label: 'Bills Receivable', perm: 'bills_receivable', element: 'bills' },
+      { to: '/payment/paid-bills', label: 'Paid Bills', perm: 'paid_bills', element: 'paid_bills' },
+    ],
   },
   {
     key: 'masters',

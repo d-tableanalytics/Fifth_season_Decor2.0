@@ -112,6 +112,9 @@ export async function issueLink(db, orderId, userId, { sent = false } = {}) {
       WHERE order_id = $5`,
     [hashToken(token), LINK_TTL_DAYS, sent, userId, orderId]
   );
+  await db.query('INSERT INTO o2d_order_events (order_id, event, reason, created_by) VALUES ($1,$2,$3,$4)', [
+    orderId, sent ? 'LEDGER_SENT' : 'PAYMENT_LINK_CREATED', sent ? 'Ledger + customer link sent on WhatsApp' : 'Customer payment link created (not sent)', userId,
+  ]);
   return token;
 }
 

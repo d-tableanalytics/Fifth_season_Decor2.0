@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { ActivityLog } from './ActivityLog';
 
 const REMARK_MODULES = ['o2d_cut', 'o2d_roll', 'crm_payment_check', 'crm_stock_check', 'crm_manager_approval', 'picking', 'planning_dispatch', 'dispatch_pending'];
 const stamp = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
@@ -71,6 +72,7 @@ export function RemarksSection({ orderId, readOnly = false }) {
       ) : (
         <p className="cell-sub">No remarks yet.</p>
       )}
+      <ActivityLog orderId={orderId} />
     </section>
   );
 }

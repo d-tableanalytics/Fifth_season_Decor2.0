@@ -36,6 +36,9 @@ export const LEDGER_RECIPIENTS = [
   { key: 'CLIENT_GROUP', label: 'Client WhatsApp group' },
 ];
 
+/** "3 payment requests · 2 approved · 1 rejected" — the client's payment promises across all orders */
+export const promiseHistoryText = (h) =>
+  !h?.total ? 'No payment requests yet' : [`${h.total} payment request${h.total > 1 ? 's' : ''}`, h.approved && `${h.approved} approved`, h.rejected && `${h.rejected} rejected`, h.pending && `${h.pending} pending`].filter(Boolean).join(' · ');
 export const inr = (v) => (v == null ? '—' : `₹${Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`);
 export const dayFmt = (d) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 export const stampFmt = (d) => (d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');

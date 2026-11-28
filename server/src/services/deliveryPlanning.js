@@ -2,6 +2,7 @@ import { query } from '../config/db.js';
 import { signImageFields } from '../config/s3.js';
 import { packItems } from './packing.js';
 import { badRequest, conflict, notFound } from '../utils/httpError.js';
+import { logActivity } from './activity.js';
 
 /**
  * Delivery Planning & Entry: warehouse-pickup handover entries on a map, closed out as delivered either to the
@@ -123,6 +124,10 @@ export async function deliverCustomer(id, b, userId) {
             cash_received_from_customer = $3, proof_url = $4, updated_by = $5, updated_at = NOW() WHERE id = $6 AND status = 'Dispatched'`,
     [b.customer_name, b.customer_phone, b.cash_received ?? null, b.proof_url || null, userId, e.id]
   );
+  if (e.linked_order_id) {
+    await logActivity({ query }, e.linked_order_id, userId, 'DELIVERED',
+      `Bill ${e.bill_no} delivered to customer ${b.customer_name} (${b.customer_phone})${b.cash_received ? ` · cash ₹${b.cash_received}` : ''}`);
+  }
   return getEntry(e.id);
 }
 
@@ -134,5 +139,8 @@ export async function deliverCourier(id, b, userId) {
             cash_paid_to_transporter = $3, proof_url = $4, updated_by = $5, updated_at = NOW() WHERE id = $6 AND status = 'Dispatched'`,
     [b.transport, b.lr_number || null, b.cash_paid ?? null, b.proof_url || null, userId, e.id]
   );
+  if (e.linked_order_id) {
+    await logActivity({ query }, e.linked_order_id, userId, 'DELIVERED', `Bill ${e.bill_no} handed to courier ${b.transport}${b.lr_number ? ` · LR ${b.lr_number}` : ''}`);
+  }
   return getEntry(e.id);
 }

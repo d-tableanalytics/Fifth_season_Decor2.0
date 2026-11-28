@@ -2,6 +2,7 @@ import { query, withTransaction } from '../config/db.js';
 import { ZONES } from '../config/zones.js';
 import { ZONE_SQL, BASE_FROM } from './dispatchPlanning.js';
 import { badRequest, notFound } from '../utils/httpError.js';
+import { logActivity } from './activity.js';
 
 /**
  * Dispatch Handover: a paperwork log of bills physically handed over. Saving never changes an order's status.
@@ -139,6 +140,8 @@ export async function saveBatch(rows, userId) {
           snap.linked_order_type, r.linked_order_id || null, snap.linked_order_no, snap.linked_challan_no, snap.linked_transport_name, userId,
         ];
         const { rows: existing } = await db.query('SELECT id FROM dispatch_entries WHERE upper(bill_no) = upper($1) FOR UPDATE', [r.bill_no]);
+        const handoverText = `Bill ${r.bill_no}: ${r.parcel_count} parcel(s) handed to ${r.pickup_party_name} (${r.person_taking}, ${r.phone}) by ${r.handover_by}`;
+        if (r.linked_order_id) await logActivity(db, r.linked_order_id, userId, 'HANDOVER', existing[0] ? `${handoverText} (updated)` : handoverText);
         if (existing[0]) {
           await db.query(
             `UPDATE dispatch_entries SET entry_date = $1, handover_by = $2, warehouse_pickup = $3, pickup_party_type = $4, pickup_party_name = $5,

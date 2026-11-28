@@ -3,6 +3,7 @@ import { ORDER_NO_PREFIX } from '../config/o2d.js';
 import { nextCode } from './masterRepo.js';
 import { badRequest, notFound } from '../utils/httpError.js';
 import { pendingBills, billsTotal } from './crmPayment.js';
+import { logActivity, lineLetter } from './activity.js';
 
 export const DEPTS = ['CUT', 'ROLL', 'IN_CHECKING'];
 export const DECISIONS = ['AVAILABLE', 'PARTIAL', 'SMALL_QTY', 'ALT_COLOR', 'ALT_FABRIC', 'ALT_WIDTH', 'DROP'];
@@ -125,6 +126,8 @@ export async function generateProforma(db, orderId, userId) {
     .map((i) => ({ item: i.alt_item || i.sku_code, catalogue: i.catalogue_name, qty: i.qty_out, unit: i.unit, rate: i.rate, amount: i.amount }));
   if (!lines.length) throw badRequest('Every item is dropped — nothing to invoice');
   const { rows } = await db.query('SELECT proforma_no FROM o2d_proformas WHERE order_id = $1', [orderId]);
+  await logActivity(db, orderId, userId, rows[0] ? 'PROFORMA_UPDATED' : 'PROFORMA_GENERATED',
+    `Proforma ${rows[0] ? `${rows[0].proforma_no} regenerated` : 'generated'} · total ₹${d.grand_total.toLocaleString('en-IN')}`);
   if (rows[0]) {
     await db.query(
       `UPDATE o2d_proformas SET lines = $1, total = $2, credit_limit = $3, is_cash = $4, generated_by = $5, generated_at = NOW() WHERE order_id = $6`,
@@ -202,7 +205,7 @@ export async function saveItemDecision(db, orderId, itemId, body, userId) {
   await stockOrder(db, orderId, true);
   if (!isUuid(itemId)) throw notFound('Item not found');
   const { rows: items } = await db.query(
-    'SELECT id, sku_code, qty::float AS qty, inv_base(sku_code) AS base FROM o2d_order_items WHERE id = $1 AND order_id = $2',
+    'SELECT id, sku_code, qty::float AS qty, unit, sort_order, inv_base(sku_code) AS base FROM o2d_order_items WHERE id = $1 AND order_id = $2',
     [itemId, orderId]
   );
   const item = items[0];
@@ -237,6 +240,10 @@ export async function saveItemDecision(db, orderId, itemId, body, userId) {
     biggestLot = lot[0].m;
   }
   const deptLabel = { CUT: 'Cut dept', ROLL: 'Roll dept', IN_CHECKING: 'In Checking' }[source];
+  const { rows: prev } = await db.query(
+    'SELECT decision, alt_item, source_type, panels, panel_length::float AS panel_length, final_qty::float AS final_qty FROM o2d_item_stock_checks WHERE item_id = $1',
+    [item.id]
+  );
   let finalQty = item.qty;
   let panels = null;
   let panelLength = null;
@@ -271,6 +278,13 @@ export async function saveItemDecision(db, orderId, itemId, body, userId) {
       throw badRequest(`${finalQty} covers the full requirement (${item.qty}) — choose Available instead`);
     }
   }
+  if (decision === 'ALT_WIDTH') {
+    // Another width changes the qty: the customer's panels × length is what goes ahead
+    if (!body.panels || !body.panel_length) throw badRequest('Enter No. of Panels and Length for the alternative width');
+    panels = body.panels;
+    panelLength = body.panel_length;
+    finalQty = round2(panels * panelLength);
+  }
   if (ALT_DECISIONS.has(decision) && !altItem && !body.note) throw badRequest('Choose an alternative item or write it in the note');
   if (decision === 'DROP') finalQty = 0;
 
@@ -283,6 +297,17 @@ export async function saveItemDecision(db, orderId, itemId, body, userId) {
        note = EXCLUDED.note, checked_by = EXCLUDED.checked_by, alt_item = EXCLUDED.alt_item, checked_at = NOW()`,
     [item.id, orderId, decision, source, available, rate, panels, panelLength, finalQty, body.note || null, userId, altItem]
   );
+  // Trail: what was decided for this item, and what it was before
+  const describe = (d) =>
+    d
+      ? [DECISION_LABEL[d.decision] || d.decision, d.alt_item && `→ ${d.alt_item}`, d.source_type && `from ${d.source_type.replace('_', ' ')}`,
+          d.panels && `${d.panels} × ${d.panel_length}`, `qty ${d.final_qty} ${item.unit}`].filter(Boolean).join(' ')
+      : null;
+  const now = { decision, alt_item: altItem, source_type: source, panels, panel_length: panelLength, final_qty: finalQty };
+  const was = describe(prev[0]);
+  await logActivity(db, orderId, userId, 'STOCK_DECISION',
+    `Line ${lineLetter(item.sort_order)} ${item.sku_code} (ordered ${item.qty} ${item.unit}): ${describe(now)}${body.note ? ` — note: ${body.note}` : ''}${was ? ` (was: ${was})` : ''}`,
+    { item_id: item.id, line: lineLetter(item.sort_order), before: prev[0] || null, after: { ...now, note: body.note || null, rate } });
 }
 
 const logEvent = (db, orderId, userId, event, from, to, reason) =>

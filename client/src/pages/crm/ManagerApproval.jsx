@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Search, ShieldCheck, Check, X } from 'lucide-react';
-import { crmApi, inr, dayFmt, stampFmt } from '../../api/crm';
+import { crmApi, inr, dayFmt, stampFmt, promiseHistoryText } from '../../api/crm';
 import { getErrorMessage } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -142,6 +142,7 @@ export default function ManagerApproval() {
                         </td>
                         <td className="cell-wrap cell-main">
                           <span className="mono mono--plain">{r.client_id}</span> {r.company_name}
+                          <div className="cell-sub">{promiseHistoryText(r.promise_history)}</div>
                         </td>
                         <td className="num">{inr(r.pending_amount)}<div className="cell-sub">{r.pending_bills} bill(s)</div></td>
                         <td>{dayFmt(r.promise_date)}</td>

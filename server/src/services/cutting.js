@@ -237,7 +237,11 @@ export async function saveCutDetails(db, type, orderId, body, userId) {
     });
   }
   const remaining = lines.filter((l) => round2(l.target - l.cut_qty) > 0);
-  await logEvent(db, o.id, userId, 'CUT_SAVED', { reason: remaining.length ? `${remaining.length} item(s) still to cut` : 'All items cut' });
+  const touched = lines.filter((l) => l.touched);
+  await logEvent(db, o.id, userId, 'CUT_SAVED', {
+    reason: `${touched.map((l) => `${l.line} ${l.item_name}: cut ${l.cut_qty}, wastage ${l.wastage_qty}`).join('; ') || 'No changes'} — ${remaining.length ? `${remaining.length} item(s) still to cut` : 'all items cut'}`,
+    details: { items: touched.map((l) => ({ item_id: l.id, line: l.line, cut_qty: l.cut_qty, wastage_qty: l.wastage_qty })) },
+  });
 
   if (remaining.length) return { completed: false };
   // Fully cut: CUTTING -> CUTTING_COMPLETED -> DELIVERY_NOTE (system passthrough, same transaction)

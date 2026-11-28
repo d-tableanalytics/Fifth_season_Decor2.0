@@ -314,7 +314,9 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
   const cutLots = av?.depts.CUT.rows || [];
   const biggestLot = Math.max(0, ...cutLots.map((r) => r.qty));
   const isAlt = form.decision?.startsWith('ALT_');
-  const partialQty = form.decision === 'SMALL_QTY' && form.panels && form.panel_length ? Math.round(form.panels * form.panel_length * 100) / 100 : null;
+  // Small Qty and Alternative width are both entered as No. of Panels × Length
+  const usesPanels = form.decision === 'SMALL_QTY' || form.decision === 'ALT_WIDTH';
+  const partialQty = usesPanels && form.panels && form.panel_length ? Math.round(form.panels * form.panel_length * 100) / 100 : null;
   const altList = (isAlt && av?.alternatives?.[form.decision.slice(4)]) || [];
   const altPicked = altList.find((a) => a.alt_name === form.alt_item);
   const stockOf = altPicked ? altPicked.depts : av?.depts;
@@ -330,8 +332,8 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
       const next = await crmApi.saveItem(order.id, item.id, {
         decision: form.decision,
         source_type: form.decision === 'DROP' ? null : sourceType || null,
-        panels: form.decision === 'SMALL_QTY' ? Number(form.panels) || null : null,
-        panel_length: form.decision === 'SMALL_QTY' ? Number(form.panel_length) || null : null,
+        panels: usesPanels ? Number(form.panels) || null : null,
+        panel_length: usesPanels ? Number(form.panel_length) || null : null,
         partial_qty: form.decision === 'PARTIAL' ? Number(form.partial_qty) || null : null,
         note: form.note.trim() || null,
         alt_item: isAlt ? form.alt_item || null : null,
@@ -361,7 +363,7 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
         <>
           <Button variant="ghost" icon={ChevronLeft} disabled={busy || index === 0} onClick={() => onIndex(index - 1)}>Previous</Button>
           <Button variant="secondary" disabled={busy} onClick={onClose}>Back to Order</Button>
-          <Button icon={last ? CheckCircle2 : ChevronRight} loading={busy} disabled={!form.decision || (isAlt && !form.alt_item && !form.note.trim())} onClick={() => save(last ? 'close' : 'next')}>
+          <Button icon={last ? CheckCircle2 : ChevronRight} loading={busy} disabled={!form.decision || (isAlt && !form.alt_item && !form.note.trim()) || (form.decision === 'ALT_WIDTH' && !(Number(form.panels) > 0 && Number(form.panel_length) > 0))} onClick={() => save(last ? 'close' : 'next')}>
             {last ? 'Save' : 'Save & Next'}
           </Button>
         </>
@@ -489,7 +491,7 @@ function ItemCheckModal({ order, index, onIndex, onSaved, onClose }) {
           </div>
         )}
 
-        {form.decision === 'SMALL_QTY' && (
+        {usesPanels && (
           <div className="form-grid">
             <Input label="No. of Panels" type="number" min="1" step="1" required value={form.panels} onChange={(e) => set('panels', e.target.value)} />
             <Input label={`Length per panel (${item.unit})`} type="number" min="0.01" step="0.01" required value={form.panel_length} onChange={(e) => set('panel_length', e.target.value)} />

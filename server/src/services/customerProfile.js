@@ -6,8 +6,8 @@ import { notFound } from '../utils/httpError.js';
  * Customer Profile: everything about one client in one place — orders (type / item wise), payment record,
  * a rating, credit and order frequency, and the remarks trail. Shown from Client Master, Payment Check and Stock Check.
  *
- * Paid-bill history (Tally) and call transcripts (Runo) are not connected yet: the profile says so
- * (`sources`), and the rating uses only what is in the system today.
+ * Paid bills come from Tally (Paid Bills sync, matched by party name = company name). Call transcripts (Runo)
+ * are not connected yet: the profile says so (`sources`).
  */
 const isUuid = (v) => /^[0-9a-f-]{36}$/i.test(v);
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -25,7 +25,7 @@ export async function customerProfile(id) {
   const client = cl[0];
   if (!client) throw notFound('Client not found');
 
-  const [{ rows: orders }, { rows: items }, { rows: promises }, { rows: advances }, { rows: remarks }, bills] = await Promise.all([
+  const [{ rows: orders }, { rows: items }, { rows: promises }, { rows: advances }, { rows: remarks }, bills, { rows: paid }] = await Promise.all([
     query(
       `SELECT o.id, o.order_type, o.enquiry_number, o.system_order_no, o.status, o.workflow_status, o.created_at,
               COUNT(i.id)::int AS item_count, COALESCE(SUM(i.qty), 0)::float AS total_qty, p.total::float AS value
@@ -63,6 +63,12 @@ export async function customerProfile(id) {
       [id]
     ),
     pendingBills({ query }, id),
+    query(
+      `SELECT b.receipt_date, b.bill_reference, b.bill_date, b.credit_days, b.due_date, b.days_late, b.receipt_total::float AS receipt_total
+         FROM bills_paid b JOIN clients c ON lower(btrim(c.company_name)) = lower(btrim(b.party))
+        WHERE c.id = $1 ORDER BY b.receipt_date DESC NULLS LAST, b.row_no`,
+      [id]
+    ),
   ]);
 
   /* ---- Orders: counts, frequency ---- */
@@ -100,6 +106,8 @@ export async function customerProfile(id) {
     bills,
     promises,
     advances,
+    paid: paidStats(paid),
+    paid_bills: paid.slice(0, 300),
   };
 
   return {
@@ -111,16 +119,35 @@ export async function customerProfile(id) {
     top_items: items,
     remarks,
     // Not connected yet — the UI shows a placeholder for each
-    sources: { tally_payments: false, runo_calls: false },
+    sources: { tally_payments: paid.length > 0, runo_calls: false },
+  };
+}
+
+/** Paid-bill record from Tally: how often the client pays by the due date and how late otherwise. */
+function paidStats(paid) {
+  const withDays = paid.filter((b) => b.days_late != null);
+  const late = withDays.filter((b) => b.days_late > 0);
+  const recent = withDays.slice(0, 20); // newest first
+  return {
+    bills: paid.length,
+    on_time: withDays.length - late.length,
+    late: late.length,
+    late_30: late.filter((b) => b.days_late > 30).length,
+    on_time_pct: withDays.length ? Math.round(((withDays.length - late.length) / withDays.length) * 100) : null,
+    avg_late_days: late.length ? Math.round(late.reduce((t, b) => t + b.days_late, 0) / late.length) : 0,
+    max_late_days: late.length ? Math.max(...late.map((b) => b.days_late)) : 0,
+    recent_on_time_pct: recent.length ? Math.round((recent.filter((b) => b.days_late <= 0).length / recent.length) * 100) : null,
+    last_receipt: paid[0]?.receipt_date || null,
   };
 }
 
 /**
- * Provisional 1–5 rating from what the system has today. Each part is 0–100:
- *  - Payment (50%): overdue days against the credit days, overdue share of the outstanding, rejected promises
+ * 1–5 rating from what the system has today. Each part is 0–100:
+ *  - Payment (50%): paid-bill history from Tally (60%: on-time share, how late on average) + today's position
+ *    (40%: overdue days against the credit days, overdue share of the outstanding, rejected promises).
+ *    Without Tally history only today's position counts and the rating is marked provisional.
  *  - Credit use (20%): outstanding against the credit limit
  *  - Orders (30%): how often and how recently the client orders
- * Paid-bill history from Tally (on-time vs late payments) will replace the payment part once synced.
  */
 function rate(client, stats, p) {
   const creditDays = client.credit_days || 30;
@@ -131,6 +158,12 @@ function rate(client, stats, p) {
   }
   pay -= Math.min(15, p.promises_rejected * 5);
   pay = clamp(pay, 0, 100);
+  const h = p.paid;
+  if (h.bills && h.on_time_pct != null) {
+    // on-time share, minus up to 30 for how late the late payments are (relative to the credit days)
+    const history = clamp(h.on_time_pct - Math.min(30, (h.avg_late_days / creditDays) * 30), 0, 100);
+    pay = history * 0.6 + pay * 0.4;
+  }
 
   const credit = p.credit_used_pct == null ? 70 : clamp(100 - Math.max(0, p.credit_used_pct - 50) * 1.2, 0, 100);
 
@@ -144,5 +177,5 @@ function rate(client, stats, p) {
   const score = Math.round(pay * 0.5 + credit * 0.2 + orders * 0.3);
   const stars = clamp(Math.round((score / 20) * 2) / 2, 0.5, 5);
   const label = score >= 80 ? 'Excellent' : score >= 65 ? 'Good' : score >= 45 ? 'Average' : score >= 30 ? 'Risky' : 'High risk';
-  return { score, stars, label, parts: { payment: Math.round(pay), credit: Math.round(credit), orders }, provisional: true };
+  return { score, stars, label, parts: { payment: Math.round(pay), credit: Math.round(credit), orders }, provisional: !h.bills };
 }

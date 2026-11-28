@@ -21,6 +21,7 @@ const CutOrders = lazy(() => import('./pages/o2d/CutOrders'));
 const RollOrders = lazy(() => import('./pages/o2d/RollOrders'));
 const ZoneMapping = lazy(() => import('./pages/masters/ZoneMapping'));
 const BillsReceivable = lazy(() => import('./pages/payment/BillsReceivable'));
+const PaidBills = lazy(() => import('./pages/payment/PaidBills'));
 const WhatsApp = lazy(() => import('./pages/masters/WhatsApp'));
 const CrmCut = lazy(() => import('./pages/crm/CrmOrders').then((m) => ({ default: m.CrmCut })));
 const CrmRoll = lazy(() => import('./pages/crm/CrmOrders').then((m) => ({ default: m.CrmRoll })));
@@ -44,7 +45,7 @@ const TaskDashboard = lazy(() => import('./pages/tasks/TaskDashboard'));
 const PcDashboard = lazy(() => import('./pages/tasks/PcDashboard'));
 
 // Real pages by navConfig `element` / path; anything else renders "Coming soon"
-const PAGES = { '/dashboard': Dashboard, inventory: Inventory, employees: Employees, roles: Roles, clients: Clients, transports: Transports, cut_orders: CutOrders, roll_orders: RollOrders, zones: ZoneMapping, bills: BillsReceivable, whatsapp: WhatsApp, crm_cut: CrmCut, crm_roll: CrmRoll, crm_approval: ManagerApproval, planning_dispatch: PlanningToDispatch, dispatch_handover: Handover, delivery_planning: DeliveryPlanning, labels: LabelDesigns, holidays: Holidays, tasks: Tasks, task_dashboard: TaskDashboard, task_pc: PcDashboard };
+const PAGES = { '/dashboard': Dashboard, inventory: Inventory, employees: Employees, roles: Roles, clients: Clients, transports: Transports, cut_orders: CutOrders, roll_orders: RollOrders, zones: ZoneMapping, bills: BillsReceivable, paid_bills: PaidBills, whatsapp: WhatsApp, crm_cut: CrmCut, crm_roll: CrmRoll, crm_approval: ManagerApproval, planning_dispatch: PlanningToDispatch, dispatch_handover: Handover, delivery_planning: DeliveryPlanning, labels: LabelDesigns, holidays: Holidays, tasks: Tasks, task_dashboard: TaskDashboard, task_pc: PcDashboard };
 
 // Task pages re-mount when the query string changes, so a notification link opens the right task even on the same page
 const KeyedBySearch = ({ Page }) => <Page key={useLocation().search} />;

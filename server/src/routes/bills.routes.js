@@ -11,7 +11,7 @@ import { HttpError } from '../utils/httpError.js';
 const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 
 /** '23-Feb-23' / '23-Feb-2023' / '2023-02-23' -> 'YYYY-MM-DD'; undefined if unreadable, null if blank. */
-function toDate(v) {
+export function toDate(v) {
   const s = String(v ?? '').trim();
   if (!s) return null;
   let m = s.match(/^(\d{1,2})[-\s/]([A-Za-z]{3})[A-Za-z]*[-\s/](\d{2}|\d{4})$/);
@@ -22,13 +22,13 @@ function toDate(v) {
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? s : undefined;
 }
-const toNum = (v) => {
+export const toNum = (v) => {
   const s = String(v ?? '').replace(/[,₹\s]/g, '');
   if (!s) return null;
   const n = Number(s);
   return Number.isFinite(n) && Math.abs(n) < 1e12 ? n : undefined;
 };
-const text = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max) || null;
+export const text = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max) || null;
 
 const COLUMNS = {
   bill_reference: 'billreference',

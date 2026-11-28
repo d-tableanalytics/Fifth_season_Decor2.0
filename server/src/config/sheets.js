@@ -21,4 +21,5 @@ export const MASTER_TABS = {
   transports: process.env.SHEET_TAB_TRANSPORTS || 'Transport Master',
   altColor: process.env.SHEET_TAB_ALT_COLOR || 'Alternative_color',
   bills: process.env.SHEET_TAB_BILLS || 'Bills Receivable',
+  paidBills: process.env.SHEET_TAB_PAID_BILLS || 'Combined Data', // Tally receipts: bills already paid
 };

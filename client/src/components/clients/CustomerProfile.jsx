@@ -6,6 +6,7 @@ import { STAGE_LABELS } from '../../api/o2d';
 import { Badge } from '../ui/Badge';
 import { Loader } from '../ui/Loader';
 import { Modal } from '../ui/Modal';
+import { PaidLateBadge } from '../../pages/payment/PaidBills';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -52,6 +53,7 @@ export function CustomerProfile({ clientId }) {
   if (error) return <p className="cell-sub">Could not load the profile — {error}</p>;
   if (!p) return <Loader label="Loading profile…" />;
   const { client: c, stats: s, rating: r, payment: pay } = p;
+  const ph = pay.paid;
 
   return (
     <div className="cprofile">
@@ -74,7 +76,7 @@ export function CustomerProfile({ clientId }) {
             </div>
             <p className="cell-sub">
               Payment {r.parts.payment} · Credit use {r.parts.credit} · Orders {r.parts.orders}
-              {r.provisional && ' — provisional: paid-bill history from Tally is not synced yet'}
+              {r.provisional && ' — provisional: no paid bills from Tally found for this party name'}
             </p>
           </div>
 
@@ -83,6 +85,11 @@ export function CustomerProfile({ clientId }) {
             <div><span>Credit days</span><strong>{c.credit_days != null ? `${c.credit_days} days` : 'Not set'}</strong></div>
             <div><span>Outstanding</span><strong>{inr(pay.outstanding)}</strong>{pay.overdue_bills > 0 && <small>{inr(pay.overdue_amount)} overdue · max {pay.max_days_overdue} days</small>}</div>
             <div><span>Payment</span><strong>{c.skip_payment_check ? 'Skip Payment' : c.payment_mode || '—'}</strong><small>{c.client_type || ''}</small></div>
+            <div>
+              <span>Pays on time</span>
+              <strong>{ph.on_time_pct != null ? `${ph.on_time_pct}%` : '—'}</strong>
+              <small>{ph.bills ? `${ph.bills} paid bills · avg ${ph.avg_late_days} days late when late` : 'No paid bills from Tally'}</small>
+            </div>
             <div><span>Orders</span><strong>{s.total_orders}</strong><small>Cut {s.by_type.CUT} · Roll {s.by_type.ROLL}{s.cancelled ? ` · ${s.cancelled} cancelled` : ''}</small></div>
             <div><span>Order frequency</span><strong>{s.avg_gap_days != null ? `every ~${s.avg_gap_days} days` : '—'}</strong><small>{s.orders_last_90d} in last 90 days</small></div>
             <div><span>Last order</span><strong>{s.last_order_at ? dayFmt(s.last_order_at) : '—'}</strong>{s.days_since_last != null && <small>{s.days_since_last} days ago</small>}</div>
@@ -161,9 +168,34 @@ export function CustomerProfile({ clientId }) {
 
       {tab === 'payments' && (
         <>
-          {!p.sources.tally_payments && (
-            <Pending icon={FileSpreadsheet} title="Paid-bill history (Tally)">
-              Not connected yet. Once Tally is synced, every paid bill with its paid date shows here and the rating uses on-time vs late payments.
+          <h4 className="crm-pay__title">
+            Paid bills (Tally)
+            {ph.bills > 0 && <span className="cell-sub"> · {ph.bills} bills · {ph.on_time_pct}% on time · {ph.late} late ({ph.late_30} over 30 days) · max {ph.max_late_days} days late{ph.recent_on_time_pct != null && ` · last 20: ${ph.recent_on_time_pct}% on time`}</span>}
+          </h4>
+          {p.sources.tally_payments ? (
+            <div className="table-wrap cprofile__paid">
+              <table className="table">
+                <thead>
+                  <tr><th>Receipt Date</th><th>Bill Ref No</th><th>Bill Date</th><th className="num">Credit Days</th><th>Due Date</th><th className="num">Early / Late</th><th className="num">Receipt Total</th></tr>
+                </thead>
+                <tbody>
+                  {pay.paid_bills.map((b, i) => (
+                    <tr key={`${b.bill_reference}-${i}`}>
+                      <td>{dayFmt(b.receipt_date)}</td>
+                      <td className="mono mono--plain">{b.bill_reference || '—'}</td>
+                      <td>{dayFmt(b.bill_date)}</td>
+                      <td className="num">{b.credit_days ?? '—'}</td>
+                      <td>{dayFmt(b.due_date)}</td>
+                      <td className="num"><PaidLateBadge days={b.days_late} /></td>
+                      <td className="num">{inr(b.receipt_total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Pending icon={FileSpreadsheet} title="No paid bills found">
+              No bill in Payment › Paid Bills has this party name. The match is by name — the Tally party name must equal the company name in Client Master.
             </Pending>
           )}
           <h4 className="crm-pay__title">Open bills (latest Bills Receivable sync)</h4>

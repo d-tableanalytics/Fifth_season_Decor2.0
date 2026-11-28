@@ -700,6 +700,23 @@ CREATE TABLE IF NOT EXISTS bills_receivable (
 );
 CREATE INDEX IF NOT EXISTS bills_receivable_party_idx ON bills_receivable (party);
 
+-- Paid bills from Tally (sheet "Combined Data"): one row per bill settled by a receipt. Full replace on every sync.
+-- days_late: + = paid after the due date, − = paid early. receipt_total is the whole receipt (may cover several bills).
+CREATE TABLE IF NOT EXISTS bills_paid (
+  id             SERIAL PRIMARY KEY,
+  receipt_date   DATE,
+  party          VARCHAR(200),
+  bill_reference VARCHAR(60),
+  bill_date      DATE,
+  credit_days    INT,
+  due_date       DATE,
+  days_late      INT,
+  receipt_total  NUMERIC(14,2),
+  row_no         INT NOT NULL,
+  synced_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS bills_paid_party_idx ON bills_paid (lower(btrim(party)));
+
 -- ---------------------------------------------------------------
 -- WhatsApp (Maytapi)
 -- ---------------------------------------------------------------

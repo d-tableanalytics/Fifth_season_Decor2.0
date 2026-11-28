@@ -212,8 +212,21 @@ export const updateOrder = async (req, res) => {
     await db.query(`UPDATE o2d_orders SET ${sets}, updated_by = $${ORDER_COLS.length + 1}, updated_at = NOW() WHERE id = $${ORDER_COLS.length + 2}`, [
       ...ORDER_COLS.map((k) => body[k] ?? null), req.user.id, order.id,
     ]);
+    const { rows: oldItems } = await db.query('SELECT sku_code, qty::float AS qty, unit FROM o2d_order_items WHERE order_id = $1 ORDER BY sort_order', [order.id]);
     await saveItems(db, order.id, body.items);
-    await logEvent(db, order.id, req.user.id, 'EDITED');
+    // Trail: which items and fields changed
+    const key = (i) => `${i.sku_code}|${i.unit}`;
+    const before = new Map(oldItems.map((i) => [key(i), i]));
+    const after = new Map(body.items.map((i) => [key(i), i]));
+    const itemChanges = [
+      ...body.items.filter((i) => !before.has(key(i))).map((i) => `+ ${i.sku_code} ${i.qty} ${i.unit}`),
+      ...oldItems.filter((i) => !after.has(key(i))).map((i) => `− ${i.sku_code} ${i.qty} ${i.unit}`),
+      ...body.items.filter((i) => before.has(key(i)) && Number(before.get(key(i)).qty) !== Number(i.qty)).map((i) => `${i.sku_code} qty ${before.get(key(i)).qty} → ${i.qty}`),
+    ];
+    const fieldChanges = ORDER_COLS.filter((k) => k !== 'order_mode' && String(order[k] ?? '') !== String(body[k] ?? ''));
+    await logEvent(db, order.id, req.user.id, 'EDITED', {
+      reason: [itemChanges.length && `Items: ${itemChanges.join('; ')}`, fieldChanges.length && `Fields: ${fieldChanges.join(', ')}`].filter(Boolean).join(' · ') || 'Saved without changes',
+    });
   });
   res.json({ data: await orderDetail(req.orderType, order.id) });
 };
